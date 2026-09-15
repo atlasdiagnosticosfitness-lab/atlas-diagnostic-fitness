@@ -293,7 +293,7 @@ button{font-family:inherit;cursor:pointer;}
 }
 .score-big .v{font-size:34px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--white);}
 .score-big .l{font-size:10.5px;color:var(--turq);text-transform:uppercase;letter-spacing:0.5px;}
-.radar-wrap{max-width:340px;margin:0 auto;}
+ .radar-wrap{max-width:340px;margin:0 auto;}
 
 .investment-total{
   display:flex;gap:20px;flex-wrap:wrap;background:rgba(232,163,61,0.08);border:1px solid rgba(232,163,61,0.25);
@@ -1348,6 +1348,41 @@ function classificacaoScore(media){
   if(media>=1.5) return "Insatisfatório";
   return "Crítico";
 }
+function drawAtlasRadarScreen(canvasId, diag){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const cssW = Math.max(280, Math.floor(rect.width || 320));
+  const cssH = Math.max(280, Math.floor(rect.height || cssW));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(cssW*dpr); canvas.height = Math.floor(cssH*dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+  const keys=Object.keys(PILARES), n=keys.length;
+  const labels=keys.map(k=>PILARES[k]);
+  const vals=keys.map(k=>Math.max(0,Math.min(5,Number(diag.atlasScore?.[k]?.nota)||0)));
+  const cx=cssW/2, cy=cssH/2+4;
+  const r=Math.min(cssW,cssH)*0.31;
+  const angle=i=>-Math.PI/2+i*2*Math.PI/n;
+  const point=(rr,i)=>({x:cx+Math.cos(angle(i))*rr,y:cy+Math.sin(angle(i))*rr});
+  ctx.lineJoin='round';
+  for(let level=1;level<=5;level++){
+    ctx.beginPath();
+    for(let i=0;i<n;i++){const p=point(r*level/5,i); if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);} ctx.closePath();
+    ctx.strokeStyle='rgba(184,194,201,.22)'; ctx.lineWidth=1; ctx.stroke();
+  }
+  for(let i=0;i<n;i++){const p=point(r,i);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(p.x,p.y);ctx.strokeStyle='rgba(184,194,201,.18)';ctx.lineWidth=1;ctx.stroke();}
+  const data=vals.map((v,i)=>point(r*v/5,i));
+  ctx.beginPath(); data.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath();
+  ctx.fillStyle='rgba(47,201,184,.20)'; ctx.fill(); ctx.strokeStyle='#2FC9B8'; ctx.lineWidth=3; ctx.stroke();
+  data.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fillStyle='#2FC9B8';ctx.fill();});
+  ctx.font='600 12px Space Grotesk, sans-serif'; ctx.fillStyle='#EDEAE2'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  labels.forEach((label,i)=>{const p=point(r+28,i); const lines=label.length>22?label.split(/ (?=[^ ]+$)/):[label]; lines.forEach((line,j)=>ctx.fillText(line,p.x,p.y+(j-(lines.length-1)/2)*14));});
+  ctx.font='500 10px JetBrains Mono, monospace'; ctx.fillStyle='#B8C2C9';
+  for(let level=1;level<=5;level++) ctx.fillText(String(level),cx+5,cy-r*level/5+2);
+}
+
 function renderRadarChart(canvasId, diag){
   if(!libAvailable('chart')) return null;
   const ctx = document.getElementById(canvasId);
@@ -1737,7 +1772,7 @@ function attachAfterRender(step){
   }
 
   if(step===2){ // atlas score
-    renderRadarChart('radarChart', d);
+    drawAtlasRadarScreen('radarChart', d);
     panel.querySelectorAll('.note-scale').forEach(group=>{
       const k = group.dataset.pilar;
       group.querySelectorAll('.note-btn').forEach(btn=>{
@@ -2527,7 +2562,7 @@ window.__atlasLibsReady.then(()=>{
 // em arquivo local aberto por duplo clique, o navegador ignora isso sem gerar erro).
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.protocol==='http:')){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js?v=6').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=7').catch(()=>{});
   });
 }
 </script>
