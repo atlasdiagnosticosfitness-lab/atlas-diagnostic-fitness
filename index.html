@@ -1,0 +1,2470 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<meta name="theme-color" content="#0B141B">
+<title>Atlas — Diagnósticos Técnicos</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Atlas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  // Carrega cada biblioteca localmente (pasta vendor/) primeiro; se não existir, usa o CDN como reserva.
+  // Isso permite que o app funcione 100% offline depois que os arquivos forem baixados uma vez para vendor/.
+  function loadLib(localSrc, cdnSrc){
+    return new Promise((resolve)=>{
+      const s = document.createElement('script');
+      s.src = localSrc;
+      s.onload = ()=>resolve(true);
+      s.onerror = ()=>{
+        const s2 = document.createElement('script');
+        s2.src = cdnSrc;
+        s2.onload = ()=>resolve(true);
+        s2.onerror = ()=>resolve(false);
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    });
+  }
+  window.__atlasLibsReady = Promise.all([
+    loadLib('./vendor/chart.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js'),
+    loadLib('./vendor/jspdf.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'),
+    loadLib('./vendor/jspdf.plugin.autotable.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js')
+  ]);
+</script>
+<style>
+:root{
+  --graphite:#0B141B;
+  --graphite2:#111E27;
+  --beige:#EDEAE2;
+  --turq:#2FC9B8;
+  --amber:#E8A33D;
+  --white:#FFFFFF;
+  --gray:#B8C2C9;
+  --gray-dark:#7C8A93;
+  --danger:#D65C4F;
+  --radius:14px;
+  --radius-sm:8px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--graphite);
+  color:var(--beige);
+  font-family:'Space Grotesk',sans-serif;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+code,.mono,input[type="number"],.mono-field,.number-tag,.value-tag{font-family:'JetBrains Mono',monospace;}
+a{color:inherit;}
+button{font-family:inherit;cursor:pointer;}
+::selection{background:var(--turq);color:var(--graphite);}
+
+/* ---------- layout shells ---------- */
+.app-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 28px;background:var(--graphite2);
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  position:sticky;top:0;z-index:40;
+}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-mark{
+  width:38px;height:38px;border-radius:50%;
+  border:2px solid var(--turq);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--turq);font-weight:700;font-size:15px;letter-spacing:1px;
+  position:relative;
+}
+.brand-mark::after{
+  content:"";position:absolute;inset:6px;border:1px solid rgba(47,201,184,0.4);border-radius:50%;
+}
+.brand-text h1{margin:0;font-size:18px;font-weight:700;letter-spacing:0.5px;}
+.brand-text span{display:block;font-size:11px;color:var(--gray);font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;}
+.header-actions{display:flex;gap:10px;align-items:center;}
+
+.container{max-width:1180px;margin:0 auto;padding:26px 24px 80px;}
+.hidden{display:none !important;}
+
+/* ---------- buttons ---------- */
+.btn{
+  border:1px solid rgba(255,255,255,0.14);
+  background:transparent;color:var(--beige);
+  padding:12px 20px;border-radius:999px;font-size:14px;font-weight:600;
+  display:inline-flex;align-items:center;gap:8px;transition:all .15s ease;white-space:nowrap;
+}
+.btn:hover{border-color:var(--turq);color:var(--turq);}
+.btn-primary{
+  background:var(--turq);color:var(--graphite);border-color:var(--turq);
+}
+.btn-primary:hover{background:#26b3a3;color:var(--graphite);}
+.btn-amber{background:var(--amber);color:var(--graphite);border-color:var(--amber);}
+.btn-danger{border-color:rgba(214,92,79,0.5);color:var(--danger);}
+.btn-danger:hover{background:var(--danger);color:var(--white);border-color:var(--danger);}
+.btn-sm{padding:8px 14px;font-size:12.5px;border-radius:8px;}
+.btn-block{width:100%;justify-content:center;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-icon-only{padding:9px;border-radius:999px;}
+
+/* ---------- home ---------- */
+.hero-line{
+  font-family:'JetBrains Mono',monospace;color:var(--turq);font-size:12.5px;
+  letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;
+}
+.tagline{color:var(--gray);font-size:14px;margin:0 0 26px;}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px;}
+.stat-card{
+  background:var(--graphite2);border:1px solid rgba(255,255,255,0.06);
+  border-radius:var(--radius);padding:18px 20px;
+}
+.stat-card .num{font-size:28px;font-weight:700;color:var(--white);font-family:'JetBrains Mono',monospace;}
+.stat-card .lbl{font-size:12.5px;color:var(--gray);margin-top:4px;}
+.stat-card.accent .num{color:var(--turq);}
+
+.toolbar{display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap;}
+.search-box{
+  flex:1;min-width:240px;position:relative;
+}
+.search-box input{
+  width:100%;padding:13px 16px 13px 40px;border-radius:999px;border:1px solid rgba(255,255,255,0.12);
+  background:var(--graphite2);color:var(--beige);font-size:14px;
+}
+.search-box input:focus{outline:none;border-color:var(--turq);}
+.search-box::before{content:"⌕";position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--gray);font-size:16px;}
+
+.notice{
+  background:rgba(47,201,184,0.06);border:1px solid rgba(47,201,184,0.2);
+  border-radius:var(--radius-sm);padding:12px 16px;font-size:12.5px;color:var(--gray);margin-bottom:20px;
+}
+.notice b{color:var(--turq);}
+
+.diag-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;}
+.diag-card{
+  background:var(--graphite2);border:1px solid rgba(255,255,255,0.07);border-radius:var(--radius);
+  padding:20px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden;
+}
+.diag-card::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--turq);
+}
+.diag-card h3{margin:0;font-size:17px;}
+.diag-meta{font-size:12.5px;color:var(--gray);font-family:'JetBrains Mono',monospace;line-height:1.6;}
+.badge{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+  font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;
+  background:rgba(255,255,255,0.08);color:var(--gray);
+}
+.badge.st-rascunho{background:rgba(184,194,201,0.15);color:var(--gray);}
+.badge.st-andamento{background:rgba(232,163,61,0.16);color:var(--amber);}
+.badge.st-concluida{background:rgba(47,201,184,0.16);color:var(--turq);}
+.badge.st-preliminar{background:rgba(47,201,184,0.25);color:var(--turq);}
+.badge.st-revisao{background:rgba(232,163,61,0.16);color:var(--amber);}
+.badge.st-finalizado{background:rgba(255,255,255,0.9);color:var(--graphite);}
+.card-top-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.score-pill{
+  width:52px;height:52px;border-radius:50%;border:2px solid var(--turq);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;
+  font-family:'JetBrains Mono',monospace;color:var(--turq);flex-shrink:0;
+}
+.progress-track{height:5px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;}
+.progress-fill{height:100%;background:var(--turq);border-radius:4px;transition:width .3s ease;}
+.card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+.card-actions .btn{padding:8px 12px;font-size:12px;}
+.empty-state{text-align:center;padding:60px 20px;color:var(--gray);}
+
+/* ---------- editor ---------- */
+.editor-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap;}
+.editor-title h2{margin:0;font-size:20px;}
+.editor-title .sub{font-size:12.5px;color:var(--gray);font-family:'JetBrains Mono',monospace;margin-top:4px;}
+.step-nav-wrap{overflow-x:auto;margin-bottom:18px;padding-bottom:6px;}
+.step-nav{display:flex;gap:6px;min-width:max-content;}
+.step-tab{
+  padding:10px 16px;border-radius:999px;border:1px solid rgba(255,255,255,0.1);
+  font-size:12.5px;white-space:nowrap;color:var(--gray);background:var(--graphite2);
+  display:flex;align-items:center;gap:8px;
+}
+.step-tab .n{
+  width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.08);
+  display:flex;align-items:center;justify-content:center;font-size:10.5px;font-family:'JetBrains Mono',monospace;
+}
+.step-tab.active{border-color:var(--turq);color:var(--turq);}
+.step-tab.active .n{background:var(--turq);color:var(--graphite);}
+.step-tab.done .n{background:rgba(47,201,184,0.3);color:var(--turq);}
+.progress-bar-outer{height:4px;background:rgba(255,255,255,0.08);border-radius:4px;margin-bottom:24px;overflow:hidden;}
+.progress-bar-inner{height:100%;background:linear-gradient(90deg,var(--turq),#7fe3d6);border-radius:4px;transition:width .3s ease;}
+
+.step-panel{background:var(--graphite2);border:1px solid rgba(255,255,255,0.06);border-radius:var(--radius);padding:26px;}
+.step-panel h3{margin:0 0 4px;font-size:19px;}
+.step-panel .step-desc{color:var(--gray);font-size:13px;margin:0 0 22px;}
+.section-block{margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.section-block:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.section-block h4{font-size:14.5px;color:var(--turq);margin:0 0 14px;text-transform:uppercase;letter-spacing:0.5px;font-family:'JetBrains Mono',monospace;font-weight:600;}
+
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field.wide{grid-column:1/-1;}
+.field label{font-size:12px;color:var(--gray);font-weight:600;}
+.field .req{color:var(--amber);}
+.field input,.field select,.field textarea{
+  padding:11px 13px;border-radius:var(--radius-sm);border:1px solid rgba(255,255,255,0.12);
+  background:var(--graphite);color:var(--beige);font-size:14px;font-family:inherit;width:100%;
+}
+.field textarea{resize:vertical;min-height:80px;font-family:inherit;}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--turq);}
+.field input::placeholder,.field textarea::placeholder{color:var(--gray-dark);}
+
+.chip-group{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{
+  padding:9px 15px;border-radius:999px;border:1px solid rgba(255,255,255,0.14);background:transparent;
+  color:var(--gray);font-size:13px;
+}
+.chip.active{background:var(--turq);color:var(--graphite);border-color:var(--turq);font-weight:600;}
+
+.opt-group{display:flex;flex-wrap:wrap;gap:10px;}
+.opt-btn{
+  padding:12px 18px;border-radius:var(--radius-sm);border:1.5px solid rgba(255,255,255,0.12);
+  background:var(--graphite);color:var(--beige);font-size:13.5px;font-weight:600;min-width:110px;text-align:center;
+}
+.opt-btn.active{border-color:var(--turq);background:rgba(47,201,184,0.14);color:var(--turq);}
+.opt-btn.crit.active{border-color:var(--danger);background:rgba(214,92,79,0.14);color:var(--danger);}
+.opt-btn.amber.active{border-color:var(--amber);background:rgba(232,163,61,0.14);color:var(--amber);}
+
+.category-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
+.category-tab{
+  padding:9px 15px;border-radius:999px;border:1px solid rgba(255,255,255,0.1);font-size:12.5px;
+  color:var(--gray);background:var(--graphite);position:relative;
+}
+.category-tab.active{border-color:var(--turq);color:var(--turq);background:rgba(47,201,184,0.1);}
+.category-tab .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;background:var(--gray-dark);}
+.category-tab.filled .dot{background:var(--turq);}
+
+.expandable{
+  border:1px solid rgba(255,255,255,0.1);border-radius:var(--radius-sm);margin-bottom:12px;overflow:hidden;background:var(--graphite);
+}
+.expandable-head{
+  display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer;gap:12px;
+}
+.expandable-head:hover{background:rgba(255,255,255,0.03);}
+.expandable-head .title{font-weight:600;font-size:14.5px;}
+.expandable-head .title small{display:block;font-size:11.5px;color:var(--gray);font-weight:400;margin-top:2px;font-family:'JetBrains Mono',monospace;}
+.expandable-body{padding:18px;border-top:1px solid rgba(255,255,255,0.08);display:none;}
+.expandable.open .expandable-body{display:block;}
+.expandable-actions{display:flex;gap:6px;align-items:center;flex-shrink:0;}
+.chev{transition:transform .2s;color:var(--gray);}
+.expandable.open .chev{transform:rotate(180deg);}
+
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-top:12px;}
+.photo-thumb{
+  border-radius:var(--radius-sm);overflow:hidden;border:1px solid rgba(255,255,255,0.1);background:var(--graphite2);
+  display:flex;flex-direction:column;
+}
+.photo-thumb img{width:100%;height:100px;object-fit:cover;display:block;}
+.photo-thumb .pt-body{padding:8px;display:flex;flex-direction:column;gap:5px;}
+.photo-thumb select,.photo-thumb input{
+  font-size:11px;padding:5px 6px;border-radius:5px;border:1px solid rgba(255,255,255,0.12);background:var(--graphite);color:var(--beige);
+}
+.photo-thumb .pt-actions{display:flex;justify-content:space-between;}
+.photo-thumb .pt-actions button{background:none;border:none;color:var(--gray);font-size:11px;}
+.photo-thumb .pt-actions button:hover{color:var(--danger);}
+.upload-btn{
+  border:1.5px dashed rgba(255,255,255,0.2);border-radius:var(--radius-sm);padding:16px;text-align:center;color:var(--gray);
+  font-size:13px;cursor:pointer;
+}
+.upload-btn:hover{border-color:var(--turq);color:var(--turq);}
+
+.pilar-card{border:1px solid rgba(255,255,255,0.1);border-radius:var(--radius-sm);padding:18px;margin-bottom:14px;background:var(--graphite);}
+.pilar-card .pilar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;}
+.pilar-card h5{margin:0;font-size:15.5px;}
+.note-scale{display:flex;gap:8px;}
+.note-btn{
+  width:44px;height:44px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.14);background:var(--graphite2);
+  color:var(--gray);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;
+}
+.note-btn.active{background:var(--turq);color:var(--graphite);border-color:var(--turq);}
+.note-btn.n1.active,.note-btn.n2.active{background:var(--danger);border-color:var(--danger);color:var(--white);}
+.note-btn.n3.active{background:var(--amber);border-color:var(--amber);color:var(--graphite);}
+
+.score-overview{display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin-bottom:22px;}
+.score-big{
+  width:120px;height:120px;border-radius:50%;border:4px solid var(--turq);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;flex-shrink:0;
+}
+.score-big .v{font-size:34px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--white);}
+.score-big .l{font-size:10.5px;color:var(--turq);text-transform:uppercase;letter-spacing:0.5px;}
+.radar-wrap{max-width:340px;margin:0 auto;}
+
+.investment-total{
+  display:flex;gap:20px;flex-wrap:wrap;background:rgba(232,163,61,0.08);border:1px solid rgba(232,163,61,0.25);
+  border-radius:var(--radius-sm);padding:16px 20px;margin-top:16px;
+}
+.investment-total .t-item .v{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--amber);}
+.investment-total .t-item .l{font-size:11.5px;color:var(--gray);}
+
+.alert-box{padding:12px 16px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;}
+.alert-box.warn{background:rgba(232,163,61,0.1);border:1px solid rgba(232,163,61,0.3);color:var(--amber);}
+.alert-box.crit{background:rgba(214,92,79,0.1);border:1px solid rgba(214,92,79,0.3);color:var(--danger);}
+.alert-box.ok{background:rgba(47,201,184,0.08);border:1px solid rgba(47,201,184,0.25);color:var(--turq);}
+
+.review-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+.review-stat{background:var(--graphite);border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius-sm);padding:14px;text-align:center;}
+.review-stat .v{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--turq);}
+.review-stat .l{font-size:11px;color:var(--gray);margin-top:2px;}
+
+.editor-footer{display:flex;justify-content:space-between;align-items:center;margin-top:22px;gap:10px;flex-wrap:wrap;}
+.editor-footer .right-group{display:flex;gap:10px;}
+
+.sig-pad-wrap{border:1px solid rgba(255,255,255,0.15);border-radius:var(--radius-sm);background:#fff;touch-action:none;}
+.sig-pad-wrap canvas{display:block;width:100%;border-radius:var(--radius-sm);}
+.sig-block{border:1px solid rgba(255,255,255,0.1);border-radius:var(--radius-sm);padding:18px;background:var(--graphite);margin-bottom:16px;}
+
+.toast{
+  position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--graphite2);border:1px solid var(--turq);color:var(--beige);
+  padding:12px 22px;border-radius:999px;font-size:13px;z-index:200;opacity:0;transition:all .25s ease;
+  box-shadow:0 8px 24px rgba(0,0,0,0.35);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(6,10,13,0.7);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.modal{background:var(--graphite2);border:1px solid rgba(255,255,255,0.1);border-radius:var(--radius);padding:26px;max-width:460px;width:100%;}
+.modal h3{margin:0 0 10px;}
+.modal p{color:var(--gray);font-size:13.5px;line-height:1.6;}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
+.modal.wide{max-width:640px;max-height:85vh;overflow-y:auto;}
+
+.institutional{
+  text-align:center;color:var(--gray);font-size:12.5px;font-style:italic;margin:30px 0 6px;
+  font-family:'JetBrains Mono',monospace;
+}
+.small-note{font-size:11.5px;color:var(--gray-dark);margin-top:8px;line-height:1.5;}
+.disclaimer{
+  background:rgba(255,255,255,0.03);border-left:3px solid var(--amber);padding:12px 16px;font-size:12.5px;color:var(--gray);border-radius:0 8px 8px 0;
+}
+@media (max-width:720px){
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .container{padding:18px 14px 70px;}
+  .step-panel{padding:18px;}
+}
+
+/* ===== ATLAS MOBILE FIELD MODE v4 ===== */
+@media (max-width:720px){
+  :root{--radius:12px;--radius-sm:9px;}
+  body{font-size:15px;padding-bottom:76px;}
+  .app-header{padding:11px 13px;position:sticky;top:0;min-height:62px;}
+  .brand{gap:9px;min-width:0;}
+  .brand-mark{width:34px;height:34px;font-size:14px;flex:0 0 34px;}
+  .brand-text h1{font-size:16px;}
+  .brand-text span{font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;}
+  .header-actions{gap:5px;}
+  .header-actions .btn:not(#btnHome){display:none;}
+  #btnHome{display:inline-flex!important;padding:8px 11px;font-size:12px;}
+  #btnMobileMenu{display:inline-flex!important;padding:8px 10px;font-size:12px;}
+  .container{padding:14px 11px 92px;}
+  .hero-line{font-size:11px;margin-bottom:5px;}
+  .tagline{font-size:13px;line-height:1.4;margin-bottom:17px;}
+  .notice{font-size:11.5px;padding:10px 12px;margin-bottom:14px;}
+  .stats-row{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+  .stat-card{padding:12px 13px;}
+  .stat-card .num{font-size:22px;}
+  .stat-card .lbl{font-size:10.5px;line-height:1.25;}
+  .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+  .search-box{grid-column:1/-1;min-width:0;}
+  .search-box input{font-size:14px;padding:12px 14px 12px 38px;}
+  .toolbar .btn{width:100%;justify-content:center;padding:11px 8px;font-size:12px;}
+  .diag-grid{grid-template-columns:1fr;gap:10px;}
+  .diag-card{padding:15px;gap:10px;}
+  .diag-card h3{font-size:16px;}
+  .diag-meta{font-size:10.5px;}
+  .score-pill{width:46px;height:46px;font-size:15px;}
+  .card-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .card-actions .btn{width:100%;justify-content:center;padding:10px 7px;font-size:11.5px;}
+  .card-actions .act-excluir{grid-column:1/-1;}
+  .editor-header{margin-bottom:10px;gap:8px;}
+  .editor-title h2{font-size:18px;}
+  .editor-title .sub{font-size:10px;}
+  .step-nav-wrap{margin:0 -11px 12px;padding:0 11px 5px;scrollbar-width:none;}
+  .step-nav-wrap::-webkit-scrollbar{display:none;}
+  .step-nav{gap:5px;}
+  .step-tab{padding:8px 10px;font-size:10.5px;}
+  .step-tab .n{width:18px;height:18px;font-size:9px;}
+  .progress-bar-outer{margin-bottom:12px;height:4px;}
+  .step-panel{padding:14px 12px;border-radius:12px;}
+  .step-panel h3{font-size:17px;}
+  .step-panel .step-desc{font-size:12px;line-height:1.5;margin-bottom:17px;}
+  .section-block{margin-bottom:20px;padding-bottom:18px;}
+  .section-block h4{font-size:12px;margin-bottom:11px;}
+  .form-grid{grid-template-columns:1fr;gap:12px;}
+  .field.wide{grid-column:auto;}
+  .field label{font-size:11.5px;}
+  .field input,.field select,.field textarea{font-size:16px;padding:12px 11px;min-height:45px;}
+  .field textarea{min-height:100px;}
+  .chip-group,.opt-group{gap:7px;}
+  .chip{padding:10px 12px;font-size:12px;}
+  .opt-btn{flex:1 1 calc(50% - 7px);min-width:0;padding:12px 8px;font-size:12px;}
+  .category-tabs{flex-wrap:nowrap;overflow-x:auto;margin:0 -2px 15px;padding-bottom:4px;scrollbar-width:none;}
+  .category-tabs::-webkit-scrollbar{display:none;}
+  .category-tab{white-space:nowrap;padding:9px 12px;font-size:11px;}
+  .expandable-head{padding:13px 12px;}
+  .expandable-head .title{font-size:13px;}
+  .expandable-head .title small{font-size:9.5px;}
+  .expandable-body{padding:13px 11px;}
+  .photo-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .photo-thumb img{height:115px;}
+  .pilar-card{padding:13px;margin-bottom:10px;}
+  .pilar-card .pilar-top{align-items:flex-start;}
+  .note-scale{gap:5px;width:100%;justify-content:space-between;}
+  .note-btn{width:43px;height:43px;}
+  .score-overview{gap:14px;margin-bottom:15px;}
+  .score-big{width:100px;height:100px;}
+  .score-big .v{font-size:29px;}
+  .investment-total{gap:12px;padding:13px 14px;}
+  .investment-total .t-item .v{font-size:18px;}
+  .review-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
+  .review-stat{padding:11px 7px;}
+  .review-stat .v{font-size:19px;}
+  .review-stat .l{font-size:9.5px;}
+  .editor-footer{position:fixed;left:0;right:0;bottom:0;z-index:100;padding:9px 10px calc(9px + env(safe-area-inset-bottom));background:rgba(17,30,39,.97);backdrop-filter:blur(10px);border-top:1px solid rgba(255,255,255,.10);margin:0;box-shadow:0 -8px 24px rgba(0,0,0,.22);}
+  .editor-footer .right-group{display:grid;grid-template-columns:1fr 1.35fr;gap:7px;flex:1;}
+  .editor-footer .btn{padding:11px 9px;font-size:11.5px;}
+  .editor-footer>#btnVoltarStep{flex:0 0 auto;}
+  .modal-overlay{padding:10px;align-items:flex-end;}
+  .modal{padding:20px 16px;max-height:88vh;overflow:auto;border-radius:16px 16px 10px 10px;}
+  .modal-actions{display:grid;grid-template-columns:1fr 1fr;}
+  .toast{bottom:82px;max-width:calc(100vw - 24px);text-align:center;}
+  .sig-pad-wrap{min-height:170px;}
+  .sig-pad-wrap canvas{height:170px;}
+}
+@media (max-width:380px){
+  .brand-text span{max-width:150px;}
+  .step-tab{padding:7px 8px;font-size:9.5px;}
+  .card-actions{grid-template-columns:1fr;}
+  .card-actions .act-excluir{grid-column:auto;}
+}
+
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-mark">A</div>
+    <div class="brand-text">
+      <h1>ATLAS</h1>
+      <span>Inteligência Técnica para Academias Condominiais</span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-sm" id="btnBackup">Backup geral</button>
+    <button class="btn btn-sm" id="btnImportBackup">Importar backup</button>
+    <input type="file" id="fileImportBackup" accept=".json" class="hidden">
+    <button class="btn btn-sm" id="btnMobileMenu" style="display:none">☰</button>
+    <button class="btn btn-primary btn-sm hidden" id="btnHome">← Início</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ======================= HOME VIEW ======================= -->
+  <div id="homeView">
+    <div class="hero-line">Diagnósticos Atlas</div>
+    <p class="tagline">"A Atlas não vende equipamentos. A Atlas protege decisões."</p>
+
+    <div class="notice">
+      Os diagnósticos estão salvos <b>neste navegador</b>. Faça backups periódicos para evitar perda de dados.
+    </div>
+
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Buscar por nome do condomínio...">
+      </div>
+      <button class="btn btn-primary" id="btnNovoDiagnostico">+ Novo diagnóstico</button>
+      <button class="btn" id="btnDemo">Carregar demonstração</button>
+      <button class="btn btn-danger" id="btnClearDemo">Limpar demonstração</button>
+    </div>
+
+    <div id="diagGrid" class="diag-grid"></div>
+    <div id="emptyState" class="empty-state hidden">
+      <p>Nenhum diagnóstico encontrado. Crie um novo diagnóstico para começar.</p>
+    </div>
+  </div>
+
+  <!-- ======================= EDITOR VIEW ======================= -->
+  <div id="editorView" class="hidden">
+    <div class="editor-header">
+      <div class="editor-title">
+        <h2 id="editorTitle">Novo diagnóstico</h2>
+        <div class="sub" id="editorSub">ATL-0000-000</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <span class="badge" id="editorStatusBadge">Rascunho</span>
+        <span class="small-note" id="saveIndicator" style="margin:0;"></span>
+      </div>
+    </div>
+
+    <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBarInner" style="width:0%"></div></div>
+
+    <div class="step-nav-wrap">
+      <div class="step-nav" id="stepNav"></div>
+    </div>
+
+    <div class="step-panel" id="stepPanel"></div>
+
+    <div class="editor-footer">
+      <button class="btn" id="btnVoltarStep">← Voltar</button>
+      <div class="right-group">
+        <button class="btn" id="btnSalvarRascunho">Salvar rascunho</button>
+        <button class="btn btn-primary" id="btnSalvarContinuar">Salvar e continuar →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="modalRoot"></div>
+
+<canvas id="hiddenRadarCanvas" width="500" height="500" style="position:absolute;left:-9999px;top:-9999px;"></canvas>
+
+<script>
+/* =========================================================================
+   ATLAS — DIAGNÓSTICOS TÉCNICOS — APP
+   Armazenamento: IndexedDB (banco "AtlasDB", store "diagnosticos")
+   ========================================================================= */
+
+/* ---------------------------- CONSTANTES ------------------------------- */
+const STEP_LABELS = [
+  "Levantamento","Diagnóstico técnico","Atlas Score","Equipamentos",
+  "Riscos e prioridades","Investimentos","Fechamento","Revisão e PDF"
+];
+const CATEGORIAS_TECNICAS = {
+  equipamentos:"Equipamentos", layout:"Layout", seguranca:"Segurança",
+  acessibilidade:"Acessibilidade", conservacao:"Conservação"
+};
+const SITUACOES = ["Excelente","Bom","Regular","Ruim","Crítico","Não avaliado","Não se aplica"];
+const PILARES = {
+  seguranca:"Segurança", patrimonio:"Patrimônio", performance:"Performance",
+  experiencia:"Experiência do Usuário", sustentabilidade:"Sustentabilidade Operacional"
+};
+const NOTA_LABELS = {1:"Crítico",2:"Insatisfatório",3:"Regular",4:"Bom",5:"Excelente"};
+const EQUIP_ESTADOS = ["Bom","Regular","Ruim","Crítico","Não avaliado"];
+const EQUIP_RECOMENDACOES = ["Manter","Manutenção preventiva","Reparar","Substituir componente","Substituir equipamento","Realocar","Retirar de uso","Monitorar","Outro"];
+const PRIORIDADES_LISTA = ["Imediata","Até 30 dias","Até 90 dias","Até 6 meses","Até 12 meses","Planejada","Sem intervenção"];
+const RISCO_NIVEIS = ["Crítico","Alto","Moderado","Baixo","Observação"];
+const PRIORIDADE_CATEGORIAS = ["Crítico","Prioritário","Planejado"];
+const PRIORIDADE_PRAZOS = ["Imediato","Até 30 dias","Até 90 dias","Até 6 meses","Até 12 meses","Planejado"];
+const MOTIVOS_RAPIDOS = ["Reclamações","Revitalização","Compra de equipamentos","Avaliação de segurança","Planejamento orçamentário","Exigência de assembleia","Manutenção recorrente","Avaliação preventiva","Outro"];
+const STATUS_LIST = ["Rascunho","Visita em andamento","Visita concluída","Relatório preliminar","Em revisão","Finalizado"];
+const STATUS_CLASS = {"Rascunho":"st-rascunho","Visita em andamento":"st-andamento","Visita concluída":"st-concluida","Relatório preliminar":"st-preliminar","Em revisão":"st-revisao","Finalizado":"st-finalizado"};
+
+/* ---------------------------- INDEXEDDB -------------------------------- */
+const DB_NAME = "AtlasDB", DB_VERSION = 1, STORE = "diagnosticos";
+let dbInstance = null;
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    if(dbInstance) return resolve(dbInstance);
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e)=>{
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(STORE)){
+        db.createObjectStore(STORE, {keyPath:"id"});
+      }
+    };
+    req.onsuccess = (e)=>{ dbInstance = e.target.result; resolve(dbInstance); };
+    req.onerror = (e)=>{ reject(e); };
+  });
+}
+async function dbPut(record){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE,"readwrite");
+    tx.objectStore(STORE).put(record);
+    tx.oncomplete = ()=>resolve(true);
+    tx.onerror = (e)=>reject(e);
+  });
+}
+async function dbGetAll(){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE,"readonly");
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = ()=>resolve(req.result || []);
+    req.onerror = (e)=>reject(e);
+  });
+}
+async function dbGet(id){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE,"readonly");
+    const req = tx.objectStore(STORE).get(id);
+    req.onsuccess = ()=>resolve(req.result || null);
+    req.onerror = (e)=>reject(e);
+  });
+}
+async function dbDelete(id){
+  const db = await openDB();
+  return new Promise((resolve,reject)=>{
+    const tx = db.transaction(STORE,"readwrite");
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = ()=>resolve(true);
+    tx.onerror = (e)=>reject(e);
+  });
+}
+
+/* ---------------------------- UTILITÁRIOS ------------------------------ */
+function uuid(){ return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;const v=c==='x'?r:(r&0x3|0x8);return v.toString(16);}); }
+function nowISO(){ return new Date().toISOString(); }
+function fmtDateTime(iso){
+  if(!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR')+" "+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+function fmtDateOnly(v){
+  if(!v) return "—";
+  const parts = v.split('-');
+  if(parts.length===3) return parts[2]+"/"+parts[1]+"/"+parts[0];
+  return v;
+}
+function fmtBRL(v){
+  v = Number(v||0);
+  return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+function escapeHtml(s){
+  if(s===undefined||s===null) return "";
+  return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function debounce(fn, ms){
+  let t;
+  return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function compressImage(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const MAX_W = 1000;
+        let w = img.width, h = img.height;
+        if(w > MAX_W){ h = Math.round(h * (MAX_W/w)); w = MAX_W; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        resolve({dataUrl, width:w, height:h});
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function libAvailable(name){
+  if(name==='jspdf') return typeof window.jspdf !== 'undefined';
+  if(name==='chart') return typeof window.Chart !== 'undefined';
+  return false;
+}
+
+/* ---------------------------- MODELO DE DADOS --------------------------- */
+function novaCategoriaTecnica(){
+  return {situacao:"", descricao:"", problemas:"", recomendacao:"", fotos:[]};
+}
+function novoPilar(){
+  return {nota:0, justificativa:"", evidencias:"", recomendacao:""};
+}
+function getConsultorPadrao(){
+  return localStorage.getItem('atlas_consultor_padrao') || 'Adriano Santos';
+}
+function setConsultorPadrao(nome){
+  if(nome && nome.trim()) localStorage.setItem('atlas_consultor_padrao', nome.trim());
+}
+
+function novoDiagnostico(){
+  const anoAtual = new Date().getFullYear();
+  return {
+    id: uuid(),
+    numero: "", // gerado depois de saber contagem
+    status: "Rascunho",
+    isDemo:false,
+    createdAt: nowISO(),
+    updatedAt: nowISO(),
+    identificacao:{
+      condominio:"", nomeFantasia:"", endereco:"", bairro:"", cidade:"", estado:"", cep:"",
+      dataVisita:"", horaInicio:"", horaFim:"", sindico:"", responsavel:"", cargo:"",
+      telefone:"", email:"", consultor:getConsultorPadrao(), numeroDiagnostico:"", observacoes:""
+    },
+    contexto:{
+      motivos:[], objetivo:"", historico:"", reclamacoes:"", qtdUsuarios:"", perfilUsuarios:"",
+      horarioFuncionamento:"", contratoManutencao:"", empresaManutencao:"", frequenciaManutencao:"",
+      restricoes:"", observacoes:""
+    },
+    categorias: Object.keys(CATEGORIAS_TECNICAS).reduce((acc,k)=>{acc[k]=novaCategoriaTecnica();return acc;},{}),
+    atlasScore: Object.keys(PILARES).reduce((acc,k)=>{acc[k]=novoPilar();return acc;},{}),
+    equipamentosLista: [],
+    riscos: [],
+    prioridades: [],
+    investimentos: [],
+    resumoExecutivo:{contexto:"", resultadoGeral:"", achados:[], pontosCriticos:"", pontosPositivos:"", recomendacaoCentral:"", proximosPassos:"", conclusaoTecnica:""},
+    assembleia:{incluirValores:true, incluirFotos:true, incluirNoPdf:true, textoProximosPassos:""},
+    assinaturas:{
+      consultor:{nome:"",cargo:"",assinaturaDataUrl:"",data:"",hora:""},
+      representante:{nome:"",cargo:"",assinaturaDataUrl:"",data:"",hora:"",naoAssinou:false}
+    }
+  };
+}
+
+/* ---------------------------- ESTADO GLOBAL ----------------------------- */
+let state = {
+  currentDiag: null,
+  currentStep: 0,
+  allDiags: [],
+  activeCategoryTab: Object.keys(CATEGORIAS_TECNICAS)[0]
+};
+
+/* ---------------------------- SALVAMENTO -------------------------------- */
+const scheduleSave = debounce(()=>persistCurrent(true), 700);
+let autoSaveTimer = setInterval(()=>{ if(state.currentDiag) persistCurrent(true); }, 30000);
+
+async function persistCurrent(silent){
+  if(!state.currentDiag) return;
+  state.currentDiag.updatedAt = nowISO();
+  await dbPut(state.currentDiag);
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0'), mm = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('saveIndicator').textContent = "Alterações salvas às "+hh+":"+mm+".";
+  if(!silent) showToast("Alterações salvas às "+hh+":"+mm+".");
+}
+
+/* ---------------------------- HELPERS DE CAMINHO ------------------------ */
+function getPath(obj, path){
+  return path.split('.').reduce((o,k)=> (o===undefined||o===null)?undefined:o[k], obj);
+}
+function setPath(obj, path, val){
+  const keys = path.split('.');
+  let o = obj;
+  for(let i=0;i<keys.length-1;i++){
+    if(!(keys[i] in o) || typeof o[keys[i]] !== 'object' || o[keys[i]]===null) o[keys[i]] = {};
+    o = o[keys[i]];
+  }
+  o[keys[keys.length-1]] = val;
+}
+function findById(arr, id){ return arr.find(x=>x.id===id); }
+
+/* ============================================================
+   HOME VIEW
+   ============================================================ */
+async function refreshHome(){
+  state.allDiags = await dbGetAll();
+  state.allDiags.sort((a,b)=> new Date(b.updatedAt) - new Date(a.updatedAt));
+  renderStats();
+  renderDiagGrid();
+}
+function scoreGeral(diag){
+  const notas = Object.values(diag.atlasScore||{}).map(p=>p.nota||0).filter(n=>n>0);
+  if(!notas.length) return null;
+  return (notas.reduce((a,b)=>a+b,0)/notas.length);
+}
+function percentualPreenchido(diag){
+  let total=0, preenchidos=0;
+  const idFields = ['condominio','endereco','cidade','estado','dataVisita','sindico','responsavel','consultor'];
+  idFields.forEach(f=>{ total++; if((diag.identificacao[f]||"").trim()) preenchidos++; });
+  total++; if((diag.contexto.objetivo||"").trim()) preenchidos++;
+  Object.values(diag.categorias).forEach(c=>{ total++; if(c.situacao) preenchidos++; });
+  Object.values(diag.atlasScore).forEach(p=>{ total++; if(p.nota>0) preenchidos++; });
+  total++; if(diag.equipamentosLista.length>0) preenchidos++;
+  total++; if(diag.riscos.length>0) preenchidos++;
+  total++; if((diag.resumoExecutivo.recomendacaoCentral||"").trim()) preenchidos++;
+  total++; if(diag.assinaturas.consultor.nome||diag.assinaturas.representante.nome||diag.assinaturas.representante.naoAssinou) preenchidos++;
+  return Math.round((preenchidos/total)*100);
+}
+function renderStats(){
+  const total = state.allDiags.length;
+  const andamento = state.allDiags.filter(d=>["Rascunho","Visita em andamento"].includes(d.status)).length;
+  const concluidos = state.allDiags.filter(d=>["Visita concluída","Relatório preliminar","Em revisão","Finalizado"].includes(d.status)).length;
+  const ultima = state.allDiags[0] ? fmtDateTime(state.allDiags[0].updatedAt) : "—";
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card"><div class="num">${total}</div><div class="lbl">Diagnósticos salvos</div></div>
+    <div class="stat-card"><div class="num">${andamento}</div><div class="lbl">Em andamento</div></div>
+    <div class="stat-card accent"><div class="num">${concluidos}</div><div class="lbl">Concluídos</div></div>
+    <div class="stat-card"><div class="num" style="font-size:16px;">${ultima}</div><div class="lbl">Última atualização</div></div>
+  `;
+}
+function renderDiagGrid(filter){
+  filter = (filter||"").toLowerCase().trim();
+  const list = state.allDiags.filter(d=> !filter || (d.identificacao.condominio||"").toLowerCase().includes(filter));
+  const grid = document.getElementById('diagGrid');
+  const empty = document.getElementById('emptyState');
+  if(!list.length){ grid.innerHTML=""; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  grid.innerHTML = list.map(d=>{
+    const score = scoreGeral(d);
+    const pct = percentualPreenchido(d);
+    const statusClass = STATUS_CLASS[d.status] || "st-rascunho";
+    return `
+    <div class="diag-card" data-id="${d.id}">
+      <div class="card-top-row">
+        <div>
+          <h3>${escapeHtml(d.identificacao.condominio || "Sem nome do condomínio")}</h3>
+          <div class="diag-meta">
+            ${escapeHtml(d.numero || d.identificacao.numeroDiagnostico || "—")}<br>
+            ${fmtDateOnly(d.identificacao.dataVisita)} · ${escapeHtml(d.identificacao.cidade||"—")}<br>
+            Responsável: ${escapeHtml(d.identificacao.consultor||"—")}
+          </div>
+        </div>
+        <div class="score-pill">${score?score.toFixed(1):"–"}</div>
+      </div>
+      <span class="badge ${statusClass}">${d.status}${d.isDemo?" · demo":""}</span>
+      <div>
+        <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="small-note" style="margin-top:6px;">${pct}% preenchido · atualizado ${fmtDateTime(d.updatedAt)}</div>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-sm act-continuar">Continuar</button>
+        <button class="btn btn-sm act-visualizar">Visualizar</button>
+        <button class="btn btn-sm act-duplicar">Duplicar</button>
+        <button class="btn btn-sm act-pdf">Gerar PDF</button>
+        <button class="btn btn-sm act-exportar">Exportar</button>
+        <button class="btn btn-sm btn-danger act-excluir">Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.diag-card').forEach(card=>{
+    const id = card.dataset.id;
+    card.querySelector('.act-continuar').onclick = ()=>openEditor(id, 0);
+    card.querySelector('.act-visualizar').onclick = ()=>openEditor(id, 10);
+    card.querySelector('.act-duplicar').onclick = ()=>duplicarDiagnostico(id);
+    card.querySelector('.act-pdf').onclick = ()=>gerarPDFparaId(id);
+    card.querySelector('.act-exportar').onclick = ()=>exportarJSON(id);
+    card.querySelector('.act-excluir').onclick = ()=>confirmarExclusao(id);
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', (e)=>renderDiagGrid(e.target.value));
+
+async function gerarNumeroDiagnostico(){
+  const all = await dbGetAll();
+  const ano = new Date().getFullYear();
+  const doAno = all.filter(d=> (d.numero||"").includes("ATL-"+ano));
+  const n = doAno.length + 1;
+  return "ATL-"+ano+"-"+String(n).padStart(3,'0');
+}
+
+document.getElementById('btnNovoDiagnostico').addEventListener('click', async ()=>{
+  const diag = novoDiagnostico();
+  diag.numero = await gerarNumeroDiagnostico();
+  diag.identificacao.numeroDiagnostico = diag.numero;
+  await dbPut(diag);
+  await refreshHome();
+  openEditor(diag.id, 0);
+});
+
+async function duplicarDiagnostico(id){
+  const original = await dbGet(id);
+  if(!original) return;
+  const copy = JSON.parse(JSON.stringify(original));
+  copy.id = uuid();
+  copy.numero = await gerarNumeroDiagnostico();
+  copy.identificacao.numeroDiagnostico = copy.numero;
+  copy.identificacao.condominio = original.identificacao.condominio + " (cópia)";
+  copy.status = "Rascunho";
+  copy.createdAt = nowISO();
+  copy.updatedAt = nowISO();
+  await dbPut(copy);
+  await refreshHome();
+  showToast("Diagnóstico duplicado.");
+}
+
+function confirmarExclusao(id){
+  const diag = state.allDiags.find(d=>d.id===id);
+  openModal(`
+    <h3>Excluir diagnóstico</h3>
+    <p>Tem certeza que deseja excluir o diagnóstico de <b>${escapeHtml(diag?.identificacao.condominio||"")}</b>? Esta ação não pode ser desfeita.</p>
+    <div class="modal-actions">
+      <button class="btn" id="cancelDel">Cancelar</button>
+      <button class="btn btn-danger" id="confirmDel">Excluir</button>
+    </div>
+  `);
+  document.getElementById('cancelDel').onclick = closeModal;
+  document.getElementById('confirmDel').onclick = async ()=>{
+    await dbDelete(id);
+    closeModal();
+    await refreshHome();
+    showToast("Diagnóstico excluído.");
+  };
+}
+
+function openModal(html){
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-overlay" id="modalOverlay"><div class="modal">${html}</div></div>`;
+  document.getElementById('modalOverlay').addEventListener('click', (e)=>{ if(e.target.id==='modalOverlay') closeModal(); });
+}
+function closeModal(){ document.getElementById('modalRoot').innerHTML = ""; }
+
+async function exportarJSON(id){
+  const diag = await dbGet(id);
+  if(!diag) return;
+  const blob = new Blob([JSON.stringify(diag,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `atlas-${(diag.numero||diag.id)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Relatório exportado em JSON.");
+}
+
+document.getElementById('btnBackup').addEventListener('click', async ()=>{
+  const all = await dbGetAll();
+  const blob = new Blob([JSON.stringify({tipo:"atlas-backup-geral", geradoEm:nowISO(), diagnosticos:all},null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `atlas-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast("Backup geral exportado.");
+});
+document.getElementById('btnImportBackup').addEventListener('click', ()=>document.getElementById('fileImportBackup').click());
+document.getElementById('fileImportBackup').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    let list = [];
+    if(data.tipo === "atlas-backup-geral" && Array.isArray(data.diagnosticos)) list = data.diagnosticos;
+    else if(data.id) list = [data]; // relatório único
+    for(const d of list){ await dbPut(d); }
+    await refreshHome();
+    showToast(`Importação concluída: ${list.length} diagnóstico(s).`);
+  }catch(err){
+    alert("Não foi possível importar o arquivo. Verifique se é um JSON válido gerado pelo Atlas.");
+  }
+  e.target.value = "";
+});
+
+// Mobile quick menu: keeps backup/import available without crowding the header.
+document.getElementById('btnMobileMenu').addEventListener('click', ()=>{
+  openModal(`
+    <h3>Atlas</h3>
+    <p>Ações rápidas para uso em campo.</p>
+    <div style="display:grid;gap:9px;margin-top:16px;">
+      <button class="btn btn-block" id="mobBackup">⬇ Fazer backup geral</button>
+      <button class="btn btn-block" id="mobImport">⬆ Importar backup</button>
+    </div>
+    <div class="modal-actions"><button class="btn" id="mobClose">Fechar</button></div>
+  `);
+  document.getElementById('mobBackup').onclick=()=>document.getElementById('btnBackup').click();
+  document.getElementById('mobImport').onclick=()=>{closeModal();document.getElementById('fileImportBackup').click();};
+  document.getElementById('mobClose').onclick=closeModal;
+});
+
+/* ---------------------- DEMONSTRAÇÃO ---------------------- */
+document.getElementById('btnDemo').addEventListener('click', async ()=>{
+  const diag = novoDiagnostico();
+  diag.numero = await gerarNumeroDiagnostico();
+  diag.isDemo = true;
+  diag.status = "Em revisão";
+  Object.assign(diag.identificacao, {
+    condominio:"Condomínio Jardins do Vale", nomeFantasia:"Jardins do Vale", endereco:"Av. das Palmeiras, 450",
+    bairro:"Vila Nova", cidade:"Curitiba", estado:"PR", cep:"80000-000",
+    dataVisita: new Date().toISOString().slice(0,10), horaInicio:"09:00", horaFim:"11:30",
+    sindico:"Marcos Andrade", responsavel:"Marcos Andrade", cargo:"Síndico", telefone:"(41) 99999-0000",
+    email:"sindico@jardinsdovale.com.br", consultor:"Consultor Atlas Demo", numeroDiagnostico:diag.numero,
+    observacoes:"Visita realizada em período de baixa utilização da academia."
+  });
+  diag.contexto.motivos = ["Reclamações","Avaliação de segurança"];
+  diag.contexto.objetivo = "Diagnóstico completo da academia condominial após reclamações de moradores.";
+  diag.contexto.qtdUsuarios = "180 usuários/mês (estimado)";
+  diag.contexto.contratoManutencao = "Sim";
+  diag.contexto.empresaManutencao = "FitCare Manutenção";
+  diag.contexto.frequenciaManutencao = "Trimestral";
+
+  Object.keys(diag.categorias).forEach((k,i)=>{
+    diag.categorias[k].situacao = ["Regular","Bom","Crítico","Ruim","Regular"][i%5];
+    diag.categorias[k].descricao = `Situação observada na categoria ${CATEGORIAS_TECNICAS[k]} durante a visita técnica.`;
+  });
+
+  diag.atlasScore.seguranca = {nota:2, justificativa:"Equipamentos sem sinalização de uso e falta de EPI.", evidencias:"Fotos dos pontos críticos.", recomendacao:"Instalar sinalização e revisar travas de segurança."};
+  diag.atlasScore.patrimonio = {nota:3, justificativa:"Desgaste acima do esperado em equipamentos de cardio.", evidencias:"Registro fotográfico de esteiras.", recomendacao:"Plano de manutenção preventiva."};
+  diag.atlasScore.performance = {nota:3, justificativa:"Equipamentos funcionais, porém desatualizados.", evidencias:"Relato de usuários.", recomendacao:"Substituição gradual."};
+  diag.atlasScore.experiencia = {nota:2, justificativa:"Ventilação insuficiente e layout apertado.", evidencias:"Medição in loco.", recomendacao:"Revisão de layout e climatização."};
+  diag.atlasScore.sustentabilidade = {nota:3, justificativa:"Manutenção reativa, sem plano estruturado.", evidencias:"Entrevista com síndico.", recomendacao:"Contratar plano de manutenção preventiva."};
+
+  diag.equipamentosLista = [
+    {id:uuid(), codigo:"EQ-001", nome:"Esteira ergométrica", estado:"Crítico", recomendacao:"Substituir equipamento", prioridade:"Imediata", fotos:[]},
+    {id:uuid(), codigo:"EQ-002", nome:"Leg press 45°", estado:"Regular", recomendacao:"Manutenção preventiva", prioridade:"Até 90 dias", fotos:[]},
+    {id:uuid(), codigo:"EQ-003", nome:"Bicicleta ergométrica", estado:"Ruim", recomendacao:"Reparar", prioridade:"Até 30 dias", fotos:[]},
+    {id:uuid(), codigo:"EQ-004", nome:"Rack de anilhas", estado:"Bom", recomendacao:"Manter", prioridade:"Sem intervenção", fotos:[]}
+  ];
+  diag.riscos = [
+    {id:uuid(), item:"Esteira ergométrica EQ-001", risco:"Falha mecânica durante uso", descricao:"Motor com superaquecimento constatado.", consequencia:"Possível parada abrupta e queda do usuário.", nivel:"Crítico", recomendacao:"Retirar de uso até substituição.", prazo:"Imediato", observacoes:"", foto:null, retiradaImediata:true},
+    {id:uuid(), item:"Sala de musculação", risco:"Ventilação insuficiente", descricao:"Ausência de exaustão adequada.", consequencia:"Desconforto térmico e queda de qualidade do ar.", nivel:"Alto", recomendacao:"Instalar sistema de exaustão.", prazo:"Até 90 dias", observacoes:"", foto:null, retiradaImediata:false},
+    {id:uuid(), item:"Piso da área de peso livre", risco:"Piso emborrachado com emendas soltas", descricao:"Risco de tropeço.", consequencia:"Queda de usuários.", nivel:"Moderado", recomendacao:"Reforçar fixação do piso.", prazo:"Até 30 dias", observacoes:"", foto:null, retiradaImediata:false}
+  ];
+  diag.prioridades = [
+    {id:uuid(), recomendacao:"Substituir esteira EQ-001", descricao:"Equipamento crítico com risco à segurança.", pilar:"seguranca", categoria:"Crítico", prazo:"Imediato", ordem:1, observacoes:""},
+    {id:uuid(), recomendacao:"Instalar sistema de exaustão", descricao:"Melhorar qualidade do ar da sala.", pilar:"experiencia", categoria:"Prioritário", prazo:"Até 90 dias", ordem:2, observacoes:""},
+    {id:uuid(), recomendacao:"Plano de manutenção preventiva", descricao:"Estruturar manutenção recorrente dos equipamentos.", pilar:"sustentabilidade", categoria:"Planejado", prazo:"Até 6 meses", ordem:3, observacoes:""}
+  ];
+  diag.investimentos = [
+    {id:uuid(), recomendacaoRelacionada:"Substituir esteira EQ-001", descricao:"Aquisição de nova esteira ergométrica.", valorMin:8000, valorMax:14000, observacoes:""},
+    {id:uuid(), recomendacaoRelacionada:"Instalar sistema de exaustão", descricao:"Projeto e instalação de exaustores.", valorMin:3500, valorMax:6000, observacoes:""},
+    {id:uuid(), recomendacaoRelacionada:"Plano de manutenção preventiva", descricao:"Contrato anual de manutenção.", valorMin:4800, valorMax:7200, observacoes:""}
+  ];
+  diag.resumoExecutivo = {
+    contexto:"Diagnóstico técnico realizado a pedido do síndico após reclamações recorrentes de moradores.",
+    resultadoGeral:"Academia apresenta risco crítico pontual e necessidade de investimentos estruturais de curto e médio prazo.",
+    achados:["Esteira com risco crítico de falha mecânica.","Ventilação insuficiente na sala de musculação.","Ausência de plano de manutenção preventiva estruturado."],
+    pontosCriticos:"Risco de acidente com a esteira EQ-001 exige ação imediata.",
+    pontosPositivos:"Estrutura de peso livre em bom estado geral.",
+    recomendacaoCentral:"Retirada imediata de uso da esteira EQ-001 e estruturação de plano de manutenção preventiva.",
+    proximosPassos:"Aprovar investimento em assembleia e iniciar substituição do equipamento crítico.",
+    conclusaoTecnica:"Academia possui potencial de recuperação com investimentos direcionados e manutenção estruturada."
+  };
+  diag.assinaturas.consultor = {nome:"Consultor Atlas Demo", cargo:"Consultor Técnico", assinaturaDataUrl:"", data:new Date().toISOString().slice(0,10), hora:"11:30"};
+
+  await dbPut(diag);
+  await refreshHome();
+  showToast("Diagnóstico de demonstração carregado.");
+});
+document.getElementById('btnClearDemo').addEventListener('click', async ()=>{
+  const all = await dbGetAll();
+  const demos = all.filter(d=>d.isDemo);
+  for(const d of demos){ await dbDelete(d.id); }
+  await refreshHome();
+  showToast(demos.length? "Demonstração removida." : "Nenhuma demonstração encontrada.");
+});
+
+/* ============================================================
+   EDITOR — NAVEGAÇÃO E RENDER
+   ============================================================ */
+async function openEditor(id, step){
+  const diag = await dbGet(id);
+  if(!diag) return;
+  state.currentDiag = diag;
+  state.currentStep = step || 0;
+  document.getElementById('homeView').classList.add('hidden');
+  document.getElementById('editorView').classList.remove('hidden');
+  document.getElementById('btnHome').classList.remove('hidden');
+  renderEditor();
+}
+function closeEditor(){
+  state.currentDiag = null;
+  document.getElementById('editorView').classList.add('hidden');
+  document.getElementById('homeView').classList.remove('hidden');
+  document.getElementById('btnHome').classList.add('hidden');
+  refreshHome();
+}
+document.getElementById('btnHome').addEventListener('click', closeEditor);
+
+function renderEditor(){
+  const d = state.currentDiag;
+  document.getElementById('editorTitle').textContent = d.identificacao.condominio || "Novo diagnóstico";
+  document.getElementById('editorSub').textContent = d.numero || "";
+  const badge = document.getElementById('editorStatusBadge');
+  badge.textContent = d.status;
+  badge.className = "badge "+(STATUS_CLASS[d.status]||"st-rascunho");
+  renderStepNav();
+  renderStepPanel();
+  document.getElementById('progressBarInner').style.width = ((state.currentStep+1)/STEP_LABELS.length*100)+"%";
+  document.getElementById('btnVoltarStep').disabled = state.currentStep===0;
+}
+function renderStepNav(){
+  const nav = document.getElementById('stepNav');
+  nav.innerHTML = STEP_LABELS.map((lbl,i)=>`
+    <div class="step-tab ${i===state.currentStep?'active':''} ${i<state.currentStep?'done':''}" data-step="${i}">
+      <span class="n">${i+1}</span>${lbl}
+    </div>`).join('');
+  nav.querySelectorAll('.step-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      state.currentStep = Number(tab.dataset.step);
+      renderEditor();
+    });
+  });
+}
+document.getElementById('btnVoltarStep').addEventListener('click', ()=>{
+  if(state.currentStep>0){ state.currentStep--; renderEditor(); }
+});
+document.getElementById('btnSalvarRascunho').addEventListener('click', async ()=>{
+  state.currentDiag.status = state.currentDiag.status === "Finalizado" ? "Finalizado" : "Rascunho";
+  await persistCurrent(false);
+  renderEditor();
+});
+document.getElementById('btnSalvarContinuar').addEventListener('click', async ()=>{
+  await persistCurrent(false);
+  if(state.currentStep < STEP_LABELS.length-1){ state.currentStep++; renderEditor(); }
+  else { showToast("Você está na última etapa."); }
+});
+
+function renderStepPanel(){
+  const d = state.currentDiag;
+  const panel = document.getElementById('stepPanel');
+  const renderers = [
+    stepLevantamento, stepDiagnosticoTecnico, stepAtlasScore, stepEquipamentos,
+    stepRiscosPrioridades, stepInvestimentos, stepFechamento, stepRevisao
+  ];
+  panel.innerHTML = renderers[state.currentStep](d);
+  attachAfterRender(state.currentStep);
+}
+
+/* ---------- helpers de campo (geram HTML e ligam eventos depois) -------- */
+function fieldText(label, path, value, opts){
+  opts = opts||{};
+  const type = opts.type || 'text';
+  const wide = opts.wide ? ' wide' : '';
+  const req = opts.req ? ' <span class="req">*</span>' : '';
+  const bindAttr = path ? ` data-bind="${path}"` : '';
+  if(type==='textarea'){
+    return `<div class="field${wide}"><label>${label}${req}</label><textarea${bindAttr} placeholder="${opts.placeholder||''}">${escapeHtml(value||"")}</textarea></div>`;
+  }
+  return `<div class="field${wide}"><label>${label}${req}</label><input type="${type}"${bindAttr} value="${escapeHtml(value||"")}" placeholder="${opts.placeholder||''}"></div>`;
+}
+function fieldSelect(label, path, value, options, opts){
+  opts = opts||{};
+  const wide = opts.wide ? ' wide' : '';
+  const bindAttr = path ? ` data-bind="${path}"` : '';
+  return `<div class="field${wide}"><label>${label}</label><select${bindAttr}>
+    <option value="">Selecione...</option>
+    ${options.map(o=>`<option value="${escapeHtml(o)}" ${o===value?'selected':''}>${escapeHtml(o)}</option>`).join('')}
+  </select></div>`;
+}
+function attachBindEvents(container){
+  container.querySelectorAll('[data-bind]').forEach(el=>{
+    const evt = (el.tagName==='SELECT') ? 'change' : 'input';
+    el.addEventListener(evt, ()=>{
+      setPath(state.currentDiag, el.dataset.bind, el.value);
+      scheduleSave();
+    });
+  });
+}
+
+/* ============================================================
+   STEP 1 — LEVANTAMENTO (Identificação + Contexto)
+   ============================================================ */
+function stepLevantamento(d){
+  const i = d.identificacao;
+  const c = d.contexto;
+  return `
+  <h3>Levantamento</h3>
+  <p class="step-desc">Dados do condomínio, da visita e contexto da solicitação.</p>
+  <div class="section-block">
+    <h4>Condomínio</h4>
+    <div class="form-grid">
+      ${fieldText("Nome do condomínio","identificacao.condominio",i.condominio,{req:true,wide:true})}
+      ${fieldText("Endereço","identificacao.endereco",i.endereco,{wide:true})}
+      ${fieldText("Bairro","identificacao.bairro",i.bairro)}
+      ${fieldText("Cidade","identificacao.cidade",i.cidade,{req:true})}
+    </div>
+  </div>
+  <div class="section-block">
+    <h4>Visita</h4>
+    <div class="form-grid">
+      ${fieldText("Data da visita","identificacao.dataVisita",i.dataVisita,{type:'date',req:true})}
+      ${fieldText("Hora de início","identificacao.horaInicio",i.horaInicio,{type:'time'})}
+      ${fieldText("Hora de término","identificacao.horaFim",i.horaFim,{type:'time'})}
+    </div>
+  </div>
+  <div class="section-block">
+    <h4>Responsáveis</h4>
+    <div class="form-grid">
+      ${fieldText("Nome do síndico","identificacao.sindico",i.sindico,{req:true})}
+      ${fieldText("Telefone","identificacao.telefone",i.telefone,{type:'tel'})}
+      ${fieldText("E-mail","identificacao.email",i.email,{type:'email'})}
+      ${fieldText("Consultor Atlas","identificacao.consultor",i.consultor,{req:true})}
+    </div>
+  </div>
+  <div class="section-block">
+    <h4>Motivo da solicitação (selecione um ou mais)</h4>
+    <div class="chip-group" id="motivosGroup">
+      ${MOTIVOS_RAPIDOS.map(m=>`<button type="button" class="chip ${c.motivos.includes(m)?'active':''}" data-motivo="${escapeHtml(m)}">${m}</button>`).join('')}
+    </div>
+  </div>
+  <div class="section-block">
+    <h4>Objetivo e histórico</h4>
+    <div class="form-grid">
+      ${fieldText("Objetivo da avaliação","contexto.objetivo",c.objetivo,{type:'textarea',wide:true})}
+      ${fieldText("Histórico da academia","contexto.historico",c.historico,{type:'textarea',wide:true})}
+      ${fieldText("Principais reclamações","contexto.reclamacoes",c.reclamacoes,{type:'textarea',wide:true})}
+    </div>
+  </div>
+  <div class="section-block">
+    <h4>Uso e operação</h4>
+    <div class="form-grid">
+      ${fieldText("Quantidade aproximada de usuários","contexto.qtdUsuarios",c.qtdUsuarios)}
+      ${fieldSelect("Existe contrato de manutenção?","contexto.contratoManutencao",c.contratoManutencao,["Sim","Não","Não soube informar"])}
+      ${fieldText("Empresa responsável pela manutenção","contexto.empresaManutencao",c.empresaManutencao)}
+    </div>
+  </div>
+  <div class="section-block">
+    <h4>Observações</h4>
+    ${fieldText("Observações gerais","contexto.observacoes",c.observacoes,{type:'textarea',wide:true,placeholder:'Anotações gerais sobre a chegada, restrições, contexto imediato, etc.'})}
+  </div>
+  `;
+}
+
+/* ============================================================
+   STEP 3 — DIAGNÓSTICO TÉCNICO
+   ============================================================ */
+function stepDiagnosticoTecnico(d){
+  const keys = Object.keys(CATEGORIAS_TECNICAS);
+  const active = state.activeCategoryTab;
+  const cat = d.categorias[active];
+  return `
+  <h3>Diagnóstico técnico</h3>
+  <p class="step-desc">Avalie cada categoria observada durante a visita.</p>
+  <div class="category-tabs">
+    ${keys.map(k=>`<div class="category-tab ${k===active?'active':''} ${d.categorias[k].situacao?'filled':''}" data-cat="${k}"><span class="dot"></span>${CATEGORIAS_TECNICAS[k]}</div>`).join('')}
+  </div>
+  <div id="categoriaBody">
+    <div class="section-block">
+      <h4>Situação geral</h4>
+      <div class="opt-group" id="situacaoGroup">
+        ${SITUACOES.map(s=>`<button type="button" class="opt-btn ${cat.situacao===s?'active':''} ${s==='Crítico'?'crit':''} ${s==='Ruim'?'amber':''}" data-situacao="${s}">${s}</button>`).join('')}
+      </div>
+    </div>
+    <div class="section-block">
+      <div class="form-grid">
+        ${fieldText("Descrição","categorias."+active+".descricao",cat.descricao,{type:'textarea',wide:true})}
+        ${fieldText("Problemas encontrados","categorias."+active+".problemas",cat.problemas,{type:'textarea'})}
+        ${fieldText("Recomendação","categorias."+active+".recomendacao",cat.recomendacao,{type:'textarea'})}
+      </div>
+    </div>
+    <div class="section-block">
+      <h4>Fotos — ${CATEGORIAS_TECNICAS[active]}</h4>
+      <label class="upload-btn">+ Adicionar fotos<input type="file" accept="image/*" multiple class="hidden" id="fotoInputCategoria"></label>
+      <div class="photo-grid" id="photoGridCategoria">${renderPhotoGrid(cat.fotos, 'categoria', active)}</div>
+    </div>
+  </div>
+  `;
+}
+function renderPhotoGrid(fotos, scope, ownerKey){
+  if(!fotos || !fotos.length) return `<div class="small-note">Nenhuma foto adicionada.</div>`;
+  return fotos.map(f=>`
+    <div class="photo-thumb" data-photo-id="${f.id}">
+      <img src="${f.dataUrl}" alt="foto">
+      <div class="pt-body">
+        <input type="text" placeholder="Legenda" value="${escapeHtml(f.caption||'')}" data-photo-field="caption">
+        <input type="text" placeholder="Local" value="${escapeHtml(f.local||'')}" data-photo-field="local">
+        <select data-photo-field="classificacao">
+          <option value="evidencia" ${f.classificacao==='evidencia'?'selected':''}>Evidência</option>
+          <option value="risco" ${f.classificacao==='risco'?'selected':''}>Risco</option>
+          <option value="ponto_positivo" ${f.classificacao==='ponto_positivo'?'selected':''}>Ponto positivo</option>
+          <option value="observacao" ${f.classificacao==='observacao'?'selected':''}>Observação</option>
+        </select>
+        <div class="pt-actions">
+          <button type="button" class="pt-view">Ver</button>
+          <button type="button" class="pt-del">Excluir</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+function wirePhotoGrid(gridEl, fotosArrayGetter, onChange, onDeleteOverride){
+  gridEl.querySelectorAll('.photo-thumb').forEach(thumb=>{
+    const pid = thumb.dataset.photoId;
+    const foto = findById(fotosArrayGetter(), pid);
+    if(!foto) return;
+    thumb.querySelectorAll('[data-photo-field]').forEach(inp=>{
+      const evt = inp.tagName==='SELECT' ? 'change' : 'input';
+      inp.addEventListener(evt, ()=>{ foto[inp.dataset.photoField] = inp.value; scheduleSave(); });
+    });
+    thumb.querySelector('.pt-view').addEventListener('click', ()=>{
+      openModal(`<h3>${escapeHtml(foto.caption||'Foto')}</h3><img src="${foto.dataUrl}" style="width:100%;border-radius:10px;"><div class="modal-actions"><button class="btn" id="closeView">Fechar</button></div>`);
+      document.getElementById('closeView').onclick = closeModal;
+    });
+    thumb.querySelector('.pt-del').addEventListener('click', ()=>{
+      if(onDeleteOverride){ onDeleteOverride(pid); }
+      else{
+        const arr = fotosArrayGetter();
+        const idx = arr.findIndex(f=>f.id===pid);
+        if(idx>-1) arr.splice(idx,1);
+      }
+      scheduleSave();
+      onChange();
+    });
+  });
+}
+
+/* ============================================================
+   STEP 4 — ATLAS SCORE
+   ============================================================ */
+let radarChartInstance = null;
+function stepAtlasScore(d){
+  const media = calcMediaScore(d);
+  return `
+  <h3>Atlas Score™</h3>
+  <p class="step-desc">Avaliação dos cinco pilares técnicos. A nota geral é calculada automaticamente pela média simples.</p>
+  <div class="score-overview">
+    <div class="score-big"><div class="v">${media?media.toFixed(1):"–"}</div><div class="l">Nota geral</div></div>
+    <div>
+      <div style="font-weight:600;font-size:15px;">${media?classificacaoScore(media):"Aguardando avaliação"}</div>
+      <div class="small-note">Média simples dos cinco pilares (não editável manualmente nesta versão).</div>
+    </div>
+  </div>
+  <div class="radar-wrap"><canvas id="radarChart"></canvas></div>
+  <div class="section-block" style="margin-top:24px;">
+    ${Object.keys(PILARES).map(k=>{
+      const p = d.atlasScore[k];
+      return `
+      <div class="pilar-card">
+        <div class="pilar-top">
+          <h5>${PILARES[k]}</h5>
+          <div class="note-scale" data-pilar="${k}">
+            ${[1,2,3,4,5].map(n=>`<button type="button" class="note-btn n${n} ${p.nota===n?'active':''}" data-nota="${n}" title="${NOTA_LABELS[n]}">${n}</button>`).join('')}
+          </div>
+        </div>
+        <div class="small-note" style="margin-bottom:10px;">${p.nota? NOTA_LABELS[p.nota] : "Nota não atribuída"}</div>
+        <div class="form-grid">
+          ${fieldText("Justificativa","atlasScore."+k+".justificativa",p.justificativa,{type:'textarea',wide:true})}
+          ${fieldText("Evidências","atlasScore."+k+".evidencias",p.evidencias,{type:'textarea'})}
+          ${fieldText("Recomendação","atlasScore."+k+".recomendacao",p.recomendacao,{type:'textarea'})}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+  `;
+}
+function calcMediaScore(d){
+  const notas = Object.values(d.atlasScore).map(p=>p.nota||0).filter(n=>n>0);
+  if(!notas.length) return null;
+  return notas.reduce((a,b)=>a+b,0)/notas.length;
+}
+function classificacaoScore(media){
+  if(media>=4.5) return "Excelente";
+  if(media>=3.5) return "Bom";
+  if(media>=2.5) return "Regular";
+  if(media>=1.5) return "Insatisfatório";
+  return "Crítico";
+}
+function renderRadarChart(canvasId, diag){
+  if(!libAvailable('chart')) return null;
+  const ctx = document.getElementById(canvasId);
+  if(!ctx) return null;
+  const labels = Object.values(PILARES);
+  const data = Object.keys(PILARES).map(k=>diag.atlasScore[k].nota||0);
+  if(radarChartInstance && canvasId==='radarChart'){ radarChartInstance.destroy(); }
+  const chart = new Chart(ctx, {
+    type:'radar',
+    data:{ labels, datasets:[{ label:'Atlas Score', data, backgroundColor:'rgba(47,201,184,0.25)', borderColor:'#2FC9B8', pointBackgroundColor:'#2FC9B8' }] },
+    options:{
+      scales:{ r:{ min:0, max:5, ticks:{ stepSize:1, color:'#B8C2C9', backdropColor:'transparent' }, grid:{color:'rgba(255,255,255,0.1)'}, angleLines:{color:'rgba(255,255,255,0.1)'}, pointLabels:{color:'#EDEAE2', font:{size:11} } } },
+      plugins:{ legend:{display:false} }
+    }
+  });
+  if(canvasId==='radarChart') radarChartInstance = chart;
+  return chart;
+}
+
+/* ============================================================
+   STEP 5 — EQUIPAMENTOS
+   ============================================================ */
+function stepEquipamentos(d){
+  return `
+  <h3>Equipamentos</h3>
+  <p class="step-desc">Cadastre cada equipamento avaliado durante a visita.</p>
+  <button class="btn btn-primary" id="btnAddEquip" style="margin-bottom:18px;">+ Adicionar equipamento</button>
+  <div id="equipList">
+    ${d.equipamentosLista.map((eq,idx)=>renderEquipCard(eq,idx,d.equipamentosLista.length)).join('') || '<div class="small-note">Nenhum equipamento cadastrado ainda.</div>'}
+  </div>
+  `;
+}
+function renderEquipCard(eq, idx, total){
+  return `
+  <div class="expandable" data-eq-id="${eq.id}">
+    <div class="expandable-head">
+      <div class="title">${escapeHtml(eq.nome||'Novo equipamento')} <small>${escapeHtml(eq.codigo||'—')} · ${eq.estado||'Não avaliado'}</small></div>
+      <div class="expandable-actions">
+        <button type="button" class="btn btn-sm eq-up" title="Mover para cima" ${idx===0?'disabled':''}>↑</button>
+        <button type="button" class="btn btn-sm eq-down" title="Mover para baixo" ${idx===total-1?'disabled':''}>↓</button>
+        <button type="button" class="btn btn-sm eq-dup">Duplicar</button>
+        <button type="button" class="btn btn-sm btn-danger eq-del">Excluir</button>
+        <span class="chev">▾</span>
+      </div>
+    </div>
+    <div class="expandable-body">
+      <div class="form-grid">
+        ${fieldText("Código","", eq.codigo,{})}
+        ${fieldText("Nome do equipamento","",eq.nome,{})}
+      </div>
+      <div class="section-block" style="margin-top:16px;">
+        <h4>Estado geral</h4>
+        <div class="opt-group eq-estado-group">${EQUIP_ESTADOS.map(s=>`<button type="button" class="opt-btn ${eq.estado===s?'active':''} ${s==='Crítico'?'crit':''} ${s==='Ruim'?'amber':''}" data-val="${s}">${s}</button>`).join('')}</div>
+      </div>
+      <div class="form-grid" style="margin-top:16px;">
+        ${fieldSelect("Recomendação","",eq.recomendacao, EQUIP_RECOMENDACOES)}
+        ${fieldSelect("Prioridade","",eq.prioridade, PRIORIDADES_LISTA)}
+      </div>
+      <div class="section-block">
+        <h4>Fotos</h4>
+        <label class="upload-btn">+ Adicionar fotos<input type="file" accept="image/*" multiple class="hidden eq-foto-input"></label>
+        <div class="photo-grid eq-photo-grid">${renderPhotoGrid(eq.fotos)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   STEP 4 — RISCOS E PRIORIDADES
+   ============================================================ */
+function stepRiscosPrioridades(d){
+  return `
+  <h3>Riscos e prioridades</h3>
+  <p class="step-desc">Registre riscos identificados e organize as recomendações por prazo.</p>
+  <div class="section-block">
+    <h4>Mapa de riscos</h4>
+    <button class="btn btn-primary" id="btnAddRisco" style="margin-bottom:18px;">+ Adicionar risco</button>
+    <div id="riscoList">
+      ${d.riscos.map((r,idx)=>renderRiscoCard(r,idx,d.riscos.length)).join('') || '<div class="small-note">Nenhum risco cadastrado ainda.</div>'}
+    </div>
+  </div>
+  <div class="section-block" style="margin-top:24px;">
+    <h4>Plano de prioridades</h4>
+    <button class="btn btn-primary" id="btnAddPrioridade" style="margin-bottom:18px;">+ Adicionar recomendação</button>
+    <div id="prioridadeList">
+      ${d.prioridades.map((p,idx)=>renderPrioridadeCard(p,idx,d.prioridades.length)).join('') || '<div class="small-note">Nenhuma recomendação cadastrada ainda.</div>'}
+    </div>
+  </div>
+  `;
+}
+function renderRiscoCard(r, idx, total){
+  return `
+  <div class="expandable" data-risco-id="${r.id}">
+    <div class="expandable-head">
+      <div class="title">${escapeHtml(r.item||'Novo risco')} <small>${r.nivel||'Não classificado'}${r.retiradaImediata?' · retirada imediata':''}</small></div>
+      <div class="expandable-actions">
+        <button type="button" class="btn btn-sm r-up" ${idx===0?'disabled':''}>↑</button>
+        <button type="button" class="btn btn-sm r-down" ${idx===total-1?'disabled':''}>↓</button>
+        <button type="button" class="btn btn-sm btn-danger r-del">Excluir</button>
+        <span class="chev">▾</span>
+      </div>
+    </div>
+    <div class="expandable-body">
+      <div class="form-grid">
+        ${fieldText("Item ou local","",r.item,{wide:true})}
+        ${fieldText("Risco identificado","",r.risco,{wide:true})}
+        ${fieldText("Descrição","",r.descricao,{type:'textarea',wide:true})}
+        ${fieldText("Possível consequência","",r.consequencia,{type:'textarea',wide:true})}
+      </div>
+      <div class="section-block" style="margin-top:16px;">
+        <h4>Nível de risco</h4>
+        <div class="opt-group r-nivel-group">${RISCO_NIVEIS.map(n=>`<button type="button" class="opt-btn ${r.nivel===n?'active':''} ${n==='Crítico'?'crit':''} ${n==='Alto'?'amber':''}" data-val="${n}">${n}</button>`).join('')}</div>
+      </div>
+      <div class="form-grid">
+        ${fieldText("Recomendação imediata","",r.recomendacao,{type:'textarea',wide:true})}
+        ${fieldSelect("Prazo","",r.prazo, PRIORIDADE_PRAZOS)}
+        ${fieldText("Observações","",r.observacoes,{type:'textarea',wide:true})}
+      </div>
+      <label style="display:flex;gap:10px;align-items:center;margin-top:10px;font-size:13.5px;">
+        <input type="checkbox" class="r-retirada" ${r.retiradaImediata?'checked':''}> Recomendar retirada imediata de uso
+      </label>
+      <div class="section-block" style="margin-top:16px;">
+        <h4>Foto</h4>
+        <label class="upload-btn">+ Adicionar foto<input type="file" accept="image/*" class="hidden r-foto-input"></label>
+        <div class="photo-grid r-photo-grid">${r.foto? renderPhotoGrid([r.foto]) : '<div class="small-note">Nenhuma foto.</div>'}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* renderPrioridadeCard usado dentro de stepRiscosPrioridades */
+function renderPrioridadeCard(p, idx, total){
+  return `
+  <div class="expandable" data-pri-id="${p.id}">
+    <div class="expandable-head">
+      <div class="title">${escapeHtml(p.recomendacao||'Nova recomendação')} <small>${p.categoria||'—'} · ${p.prazo||'—'}</small></div>
+      <div class="expandable-actions">
+        <button type="button" class="btn btn-sm p-up" ${idx===0?'disabled':''}>↑</button>
+        <button type="button" class="btn btn-sm p-down" ${idx===total-1?'disabled':''}>↓</button>
+        <button type="button" class="btn btn-sm btn-danger p-del">Excluir</button>
+        <span class="chev">▾</span>
+      </div>
+    </div>
+    <div class="expandable-body">
+      <div class="form-grid">
+        ${fieldText("Recomendação","",p.recomendacao,{wide:true})}
+        ${fieldText("Descrição","",p.descricao,{type:'textarea',wide:true})}
+        ${fieldSelect("Pilar afetado","",PILARES[p.pilar]||"", Object.values(PILARES))}
+        ${fieldSelect("Categoria","",p.categoria, PRIORIDADE_CATEGORIAS)}
+        ${fieldSelect("Prazo","",p.prazo, PRIORIDADE_PRAZOS)}
+        ${fieldText("Observações","",p.observacoes,{type:'textarea',wide:true})}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   STEP 8 — INVESTIMENTOS
+   ============================================================ */
+function stepInvestimentos(d){
+  const totMin = d.investimentos.reduce((a,i)=>a+(Number(i.valorMin)||0),0);
+  const totMax = d.investimentos.reduce((a,i)=>a+(Number(i.valorMax)||0),0);
+  return `
+  <h3>Estimativa de investimentos</h3>
+  <p class="step-desc">Faixas preliminares de investimento associadas às recomendações.</p>
+  <button class="btn btn-primary" id="btnAddInvest" style="margin-bottom:18px;">+ Adicionar estimativa</button>
+  <div id="investList">
+    ${d.investimentos.map((inv,idx)=>renderInvestCard(inv,idx)).join('') || '<div class="small-note">Nenhuma estimativa cadastrada ainda.</div>'}
+  </div>
+  <div class="investment-total" id="investTotalsBlock">
+    <div class="t-item"><div class="v" id="investTotalMin">${fmtBRL(totMin)}</div><div class="l">Valor mínimo total</div></div>
+    <div class="t-item"><div class="v" id="investTotalMax">${fmtBRL(totMax)}</div><div class="l">Valor máximo total</div></div>
+  </div>
+  <div class="disclaimer" style="margin-top:16px;">As faixas apresentadas são estimativas preliminares e referenciais. Não constituem orçamento definitivo, proposta comercial ou compromisso de fornecimento.</div>
+  `;
+}
+function renderInvestCard(inv, idx){
+  return `
+  <div class="expandable" data-inv-id="${inv.id}">
+    <div class="expandable-head">
+      <div class="title">${escapeHtml(inv.recomendacaoRelacionada||'Nova estimativa')} <small>${fmtBRL(inv.valorMin)} — ${fmtBRL(inv.valorMax)}</small></div>
+      <div class="expandable-actions">
+        <button type="button" class="btn btn-sm btn-danger inv-del">Excluir</button>
+        <span class="chev">▾</span>
+      </div>
+    </div>
+    <div class="expandable-body">
+      <div class="form-grid">
+        ${fieldText("Recomendação relacionada","",inv.recomendacaoRelacionada,{wide:true})}
+        ${fieldText("Descrição","",inv.descricao,{type:'textarea',wide:true})}
+        ${fieldText("Valor mínimo estimado (R$)","",inv.valorMin,{type:'number'})}
+        ${fieldText("Valor máximo estimado (R$)","",inv.valorMax,{type:'number'})}
+        ${fieldText("Observações","",inv.observacoes,{type:'textarea',wide:true})}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   STEP 7 — FECHAMENTO (Resumo executivo + Assembleia)
+   ============================================================ */
+function stepFechamento(d){
+  const r = d.resumoExecutivo;
+  const a = d.assembleia;
+  const media = calcMediaScore(d);
+  const riscosCriticos = d.riscos.filter(r=>r.nivel==='Crítico');
+  const totMin = d.investimentos.reduce((s,i)=>s+(Number(i.valorMin)||0),0);
+  const totMax = d.investimentos.reduce((s,i)=>s+(Number(i.valorMax)||0),0);
+  const top3achados = d.resumoExecutivo.achados.slice(0,3);
+  const top3prior = d.prioridades.slice(0,3);
+  return `
+  <h3>Fechamento</h3>
+  <p class="step-desc">Síntese técnica do diagnóstico e material resumido para assembleia.</p>
+  <div class="section-block">
+    <h4>Resumo executivo</h4>
+    <button class="btn btn-amber" id="btnGerarSugestao" style="margin-bottom:18px;">Gerar sugestão com dados preenchidos</button>
+    <div class="form-grid">
+      ${fieldText("Contexto","resumoExecutivo.contexto",r.contexto,{type:'textarea',wide:true})}
+      ${fieldText("Resultado geral","resumoExecutivo.resultadoGeral",r.resultadoGeral,{type:'textarea',wide:true})}
+    </div>
+    <div class="section-block" style="margin-top:20px;">
+      <h4>Principais achados</h4>
+      <div id="achadosList">
+        ${r.achados.map((a,idx)=>`<div class="form-grid" style="grid-template-columns:1fr auto;align-items:center;margin-bottom:8px;">
+          <input type="text" class="achado-input" data-idx="${idx}" value="${escapeHtml(a)}" style="padding:11px 13px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:var(--graphite);color:var(--beige);">
+          <button type="button" class="btn btn-sm btn-danger achado-del" data-idx="${idx}">Excluir</button>
+        </div>`).join('')}
+      </div>
+      <button class="btn btn-sm" id="btnAddAchado">+ Adicionar achado</button>
+    </div>
+    <div class="form-grid" style="margin-top:20px;">
+      ${fieldText("Pontos críticos","resumoExecutivo.pontosCriticos",r.pontosCriticos,{type:'textarea',wide:true})}
+      ${fieldText("Recomendação central","resumoExecutivo.recomendacaoCentral",r.recomendacaoCentral,{type:'textarea',wide:true,req:true})}
+      ${fieldText("Próximos passos","resumoExecutivo.proximosPassos",r.proximosPassos,{type:'textarea',wide:true})}
+    </div>
+  </div>
+  <div class="section-block" style="margin-top:24px;">
+    <h4>Material para assembleia</h4>
+    <div class="form-grid" style="margin-bottom:20px;">
+      <label style="display:flex;gap:10px;align-items:center;"><input type="checkbox" id="chkIncluirValores" ${a.incluirValores?'checked':''}> Incluir valores de investimento</label>
+      <label style="display:flex;gap:10px;align-items:center;"><input type="checkbox" id="chkIncluirFotos" ${a.incluirFotos?'checked':''}> Incluir fotos</label>
+      <label style="display:flex;gap:10px;align-items:center;"><input type="checkbox" id="chkIncluirPdf" ${a.incluirNoPdf?'checked':''}> Incluir esta página no PDF</label>
+    </div>
+    <div class="section-block" style="background:var(--graphite);padding:20px;border-radius:10px;">
+      <h4>Prévia</h4>
+      <p><b>${escapeHtml(d.identificacao.condominio||'—')}</b> — visita em ${fmtDateOnly(d.identificacao.dataVisita)}</p>
+      <p>Atlas Score geral: <b>${media?media.toFixed(1):'–'}</b> (${media?classificacaoScore(media):'—'})</p>
+      <p>Riscos críticos identificados: <b>${riscosCriticos.length}</b></p>
+      <p>Principais achados: ${top3achados.length? top3achados.map(a=>escapeHtml(a)).join(' · ') : '—'}</p>
+      <p>Principais recomendações: ${top3prior.length? top3prior.map(p=>escapeHtml(p.recomendacao)).join(' · ') : '—'}</p>
+      ${a.incluirValores ? `<p>Faixa estimada de investimento: <b>${fmtBRL(totMin)} — ${fmtBRL(totMax)}</b></p>` : ''}
+    </div>
+    <div class="form-grid" style="margin-top:20px;">
+      ${fieldText("Texto de próximos passos (editável)","assembleia.textoProximosPassos",a.textoProximosPassos,{type:'textarea',wide:true})}
+    </div>
+  </div>
+  `;
+}
+
+/* ============================================================
+   STEP 11 — REVISÃO E PDF
+   ============================================================ */
+function stepRevisao(d){
+  const pct = percentualPreenchido(d);
+  const qEquip = d.equipamentosLista.length;
+  const qRiscos = d.riscos.length;
+  const qPrior = d.prioridades.length;
+  let qFotos = 0;
+  Object.values(d.categorias).forEach(c=>qFotos+=c.fotos.length);
+  d.equipamentosLista.forEach(e=>qFotos+=e.fotos.length);
+  d.riscos.forEach(r=>{ if(r.foto) qFotos++; });
+  const media = calcMediaScore(d);
+  const totMin = d.investimentos.reduce((s,i)=>s+(Number(i.valorMin)||0),0);
+  const totMax = d.investimentos.reduce((s,i)=>s+(Number(i.valorMax)||0),0);
+
+  const alerts = [];
+  d.riscos.forEach(r=>{ if(r.nivel==='Crítico' && !(r.recomendacao||'').trim()) alerts.push({t:'crit', msg:`Risco crítico "${r.item||'sem nome'}" sem recomendação.`}); });
+  d.equipamentosLista.forEach(e=>{ if(e.estado==='Crítico' && !(e.recomendacao||'').trim()) alerts.push({t:'crit', msg:`Equipamento crítico "${e.nome||'sem nome'}" sem ação/recomendação definida.`}); });
+  Object.keys(PILARES).forEach(k=>{ const p=d.atlasScore[k]; if(p.nota>0 && !(p.justificativa||'').trim()) alerts.push({t:'warn', msg:`Pilar "${PILARES[k]}" sem justificativa.`}); });
+  if(!(d.resumoExecutivo.recomendacaoCentral||'').trim()) alerts.push({t:'warn', msg:'Relatório sem recomendação central definida.'});
+  if(!(d.identificacao.condominio||'').trim()) alerts.push({t:'crit', msg:'Condomínio sem identificação (nome).'});
+
+  const libWarn = (!libAvailable('jspdf')) ? `<div class="alert-box warn">As bibliotecas de geração de PDF não carregaram (sem conexão com a internet). Você pode continuar preenchendo e salvando o diagnóstico normalmente; a geração do PDF poderá exigir conexão.</div>` : '';
+
+  return `
+  <h3>Revisão e PDF</h3>
+  <p class="step-desc">Confira as pendências antes de gerar o relatório preliminar.</p>
+  ${libWarn}
+  <div class="review-grid">
+    <div class="review-stat"><div class="v">${pct}%</div><div class="l">Preenchido</div></div>
+    <div class="review-stat"><div class="v">${qEquip}</div><div class="l">Equipamentos</div></div>
+    <div class="review-stat"><div class="v">${qRiscos}</div><div class="l">Riscos</div></div>
+    <div class="review-stat"><div class="v">${qPrior}</div><div class="l">Recomendações</div></div>
+    <div class="review-stat"><div class="v">${qFotos}</div><div class="l">Fotos</div></div>
+    <div class="review-stat"><div class="v">${media?media.toFixed(1):'–'}</div><div class="l">Atlas Score</div></div>
+  </div>
+  <div class="small-note" style="margin-bottom:18px;">Faixa de investimento: ${fmtBRL(totMin)} — ${fmtBRL(totMax)} · Status atual: <b>${d.status}</b></div>
+
+  <div class="section-block">
+    <h4>Alertas</h4>
+    ${alerts.length ? alerts.map(a=>`<div class="alert-box ${a.t}">${a.msg}</div>`).join('') : '<div class="alert-box ok">Nenhuma pendência crítica identificada.</div>'}
+  </div>
+
+  <div class="section-block">
+    <h4>Status do diagnóstico</h4>
+    <div class="opt-group" id="statusGroup">
+      ${STATUS_LIST.map(s=>`<button type="button" class="opt-btn ${d.status===s?'active':''}" data-status="${s}">${s}</button>`).join('')}
+    </div>
+  </div>
+
+  <div class="section-block">
+    <h4>Assinaturas</h4>
+    ${renderSignatureBlock('consultor', 'Consultor Atlas', d.assinaturas.consultor)}
+    ${renderSignatureBlock('representante', 'Representante do condomínio', d.assinaturas.representante)}
+    <div class="small-note">A assinatura confirma o acompanhamento da visita e o recebimento da prévia, não representando concordância integral com todas as conclusões técnicas.</div>
+  </div>
+
+  <div class="section-block" style="text-align:center;">
+    <button class="btn btn-primary btn-block" id="btnGerarPDF" style="max-width:320px;margin:0 auto;">Gerar PDF preliminar</button>
+  </div>
+  `;
+}
+function renderSignatureBlock(key, label, sig){
+  return `
+  <div class="sig-block" data-sig-key="${key}">
+    <h5 style="margin:0 0 12px;">${label}</h5>
+    <div class="form-grid">
+      ${fieldText("Nome completo","assinaturas."+key+".nome",sig.nome,{})}
+      ${fieldText("Cargo","assinaturas."+key+".cargo",sig.cargo,{})}
+      ${fieldText("Data","assinaturas."+key+".data",sig.data,{type:'date'})}
+      ${fieldText("Hora","assinaturas."+key+".hora",sig.hora,{type:'time'})}
+    </div>
+    ${key==='representante' ? `<label style="display:flex;gap:10px;align-items:center;margin:12px 0;font-size:13.5px;"><input type="checkbox" class="chk-nao-assinou" ${sig.naoAssinou?'checked':''}> O representante optou por não assinar.</label>` : ''}
+    <div class="sig-area" style="${sig.naoAssinou?'display:none;':''}">
+      <div class="sig-pad-wrap"><canvas class="sig-canvas" width="600" height="180"></canvas></div>
+      <button class="btn btn-sm" style="margin-top:8px;" type="button" data-clear-sig="${key}">Limpar assinatura</button>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   ATTACH AFTER RENDER — liga eventos específicos de cada etapa
+   ============================================================ */
+function attachAfterRender(step){
+  const panel = document.getElementById('stepPanel');
+  attachBindEvents(panel);
+  const d = state.currentDiag;
+
+  if(step===0){ // levantamento (identificação + contexto)
+    panel.querySelectorAll('#motivosGroup .chip').forEach(chip=>{
+      chip.addEventListener('click', ()=>{
+        const m = chip.dataset.motivo;
+        const idx = d.contexto.motivos.indexOf(m);
+        if(idx>-1) d.contexto.motivos.splice(idx,1); else d.contexto.motivos.push(m);
+        chip.classList.toggle('active');
+        scheduleSave();
+      });
+    });
+    const consultorInput = panel.querySelector('[data-bind="identificacao.consultor"]');
+    if(consultorInput) consultorInput.addEventListener('change', ()=> setConsultorPadrao(consultorInput.value));
+  }
+
+  if(step===1){ // diagnóstico técnico
+    panel.querySelectorAll('.category-tab').forEach(tab=>{
+      tab.addEventListener('click', ()=>{ state.activeCategoryTab = tab.dataset.cat; renderStepPanel(); });
+    });
+    const active = state.activeCategoryTab;
+    panel.querySelectorAll('#situacaoGroup .opt-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        d.categorias[active].situacao = btn.dataset.situacao;
+        scheduleSave();
+        renderStepPanel();
+      });
+    });
+    const fotoInput = document.getElementById('fotoInputCategoria');
+    if(fotoInput){
+      fotoInput.addEventListener('change', async (e)=>{
+        for(const file of e.target.files){
+          const {dataUrl,width,height} = await compressImage(file);
+          d.categorias[active].fotos.push({id:uuid(), dataUrl, width, height, caption:"", local:"", classificacao:"evidencia"});
+        }
+        scheduleSave();
+        renderStepPanel();
+      });
+    }
+    wirePhotoGrid(document.getElementById('photoGridCategoria'), ()=>d.categorias[active].fotos, renderStepPanel);
+  }
+
+  if(step===2){ // atlas score
+    renderRadarChart('radarChart', d);
+    panel.querySelectorAll('.note-scale').forEach(group=>{
+      const k = group.dataset.pilar;
+      group.querySelectorAll('.note-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          d.atlasScore[k].nota = Number(btn.dataset.nota);
+          scheduleSave();
+          renderStepPanel();
+        });
+      });
+    });
+  }
+
+  if(step===3){ // equipamentos
+    document.getElementById('btnAddEquip').addEventListener('click', ()=>{
+      d.equipamentosLista.push({id:uuid(), codigo:"EQ-"+String(d.equipamentosLista.length+1).padStart(3,'0'), nome:"", estado:"", recomendacao:"", prioridade:"", fotos:[]});
+      scheduleSave(); renderStepPanel();
+    });
+    wireEquipCards(panel);
+  }
+
+  if(step===4){ // riscos e prioridades
+    document.getElementById('btnAddRisco').addEventListener('click', ()=>{
+      d.riscos.push({id:uuid(), item:"", risco:"", descricao:"", consequencia:"", nivel:"", recomendacao:"", prazo:"", observacoes:"", foto:null, retiradaImediata:false});
+      scheduleSave(); renderStepPanel();
+    });
+    wireRiscoCards(panel);
+    document.getElementById('btnAddPrioridade').addEventListener('click', ()=>{
+      d.prioridades.push({id:uuid(), recomendacao:"", descricao:"", pilar:"", categoria:"", prazo:"", ordem:d.prioridades.length+1, observacoes:""});
+      scheduleSave(); renderStepPanel();
+    });
+    wirePrioridadeCards(panel);
+  }
+
+  if(step===5){ // investimentos
+    document.getElementById('btnAddInvest').addEventListener('click', ()=>{
+      d.investimentos.push({id:uuid(), recomendacaoRelacionada:"", descricao:"", valorMin:0, valorMax:0, observacoes:""});
+      scheduleSave(); renderStepPanel();
+    });
+    wireInvestCards(panel);
+  }
+
+  if(step===6){ // fechamento (resumo executivo + assembleia)
+    document.getElementById('btnAddAchado').addEventListener('click', ()=>{
+      d.resumoExecutivo.achados.push("");
+      scheduleSave(); renderStepPanel();
+    });
+    panel.querySelectorAll('.achado-input').forEach(inp=>{
+      inp.addEventListener('input', ()=>{ d.resumoExecutivo.achados[Number(inp.dataset.idx)] = inp.value; scheduleSave(); });
+    });
+    panel.querySelectorAll('.achado-del').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ d.resumoExecutivo.achados.splice(Number(btn.dataset.idx),1); scheduleSave(); renderStepPanel(); });
+    });
+    document.getElementById('btnGerarSugestao').addEventListener('click', ()=>{
+      gerarSugestaoResumo(d);
+      scheduleSave(); renderStepPanel();
+    });
+    document.getElementById('chkIncluirValores').addEventListener('change', (e)=>{ d.assembleia.incluirValores = e.target.checked; scheduleSave(); renderStepPanel(); });
+    document.getElementById('chkIncluirFotos').addEventListener('change', (e)=>{ d.assembleia.incluirFotos = e.target.checked; scheduleSave(); });
+    document.getElementById('chkIncluirPdf').addEventListener('change', (e)=>{ d.assembleia.incluirNoPdf = e.target.checked; scheduleSave(); });
+  }
+
+  if(step===7){ // revisão
+    panel.querySelectorAll('#statusGroup .opt-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        d.status = btn.dataset.status;
+        scheduleSave(); renderEditor();
+      });
+    });
+    wireSignatureBlock(panel, 'consultor');
+    wireSignatureBlock(panel, 'representante');
+    document.getElementById('btnGerarPDF').addEventListener('click', ()=>confirmarGerarPDF());
+  }
+}
+
+/* -------- wiring: equipamentos -------- */
+function wireEquipCards(panel){
+  const d = state.currentDiag;
+  panel.querySelectorAll('.expandable[data-eq-id]').forEach(card=>{
+    const id = card.dataset.eqId;
+    const eq = findById(d.equipamentosLista, id);
+    card.querySelector('.expandable-head').addEventListener('click', (e)=>{
+      if(e.target.closest('.expandable-actions')) return;
+      card.classList.toggle('open');
+    });
+    const inputs = card.querySelectorAll('.expandable-body input[type=text], .expandable-body input[type=number], .expandable-body textarea, .expandable-body select');
+    const fieldOrder = ['codigo','nome','recomendacao','prioridade'];
+    let fi = 0;
+    inputs.forEach(inp=>{
+      const key = fieldOrder[fi]; fi++;
+      const evt = inp.tagName==='SELECT' ? 'change':'input';
+      inp.addEventListener(evt, ()=>{ eq[key] = inp.value; scheduleSave(); if(inp.tagName==='SELECT'||key==='nome'||key==='codigo') renderStepPanelSoft(card,eq); });
+    });
+    card.querySelectorAll('.eq-estado-group .opt-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ eq.estado = btn.dataset.val; scheduleSave(); renderStepPanel(); });
+    });
+    card.querySelector('.eq-up').addEventListener('click', ()=>{ moveItem(d.equipamentosLista, id, -1); scheduleSave(); renderStepPanel(); });
+    card.querySelector('.eq-down').addEventListener('click', ()=>{ moveItem(d.equipamentosLista, id, 1); scheduleSave(); renderStepPanel(); });
+    card.querySelector('.eq-dup').addEventListener('click', ()=>{
+      const copy = JSON.parse(JSON.stringify(eq)); copy.id = uuid(); copy.codigo = eq.codigo+"-cópia";
+      const idx = d.equipamentosLista.findIndex(x=>x.id===id);
+      d.equipamentosLista.splice(idx+1,0,copy); scheduleSave(); renderStepPanel();
+    });
+    card.querySelector('.eq-del').addEventListener('click', ()=>{
+      const idx = d.equipamentosLista.findIndex(x=>x.id===id);
+      d.equipamentosLista.splice(idx,1); scheduleSave(); renderStepPanel();
+    });
+    const fotoInput = card.querySelector('.eq-foto-input');
+    if(fotoInput){
+      fotoInput.addEventListener('change', async (e)=>{
+        for(const file of e.target.files){
+          const {dataUrl,width,height} = await compressImage(file);
+          eq.fotos.push({id:uuid(), dataUrl, width, height, caption:"", local:"", classificacao:"evidencia"});
+        }
+        scheduleSave(); renderStepPanel();
+      });
+    }
+    wirePhotoGrid(card.querySelector('.eq-photo-grid'), ()=>eq.fotos, renderStepPanel);
+  });
+}
+function renderStepPanelSoft(card, eq){
+  const titleEl = card.querySelector('.expandable-head .title');
+  if(titleEl) titleEl.innerHTML = `${escapeHtml(eq.nome||'Novo equipamento')} <small>${escapeHtml(eq.codigo||'—')} · ${eq.estado||'Não avaliado'}</small>`;
+}
+function updateInvestTotals(){
+  const d = state.currentDiag;
+  const totMin = d.investimentos.reduce((a,i)=>a+(Number(i.valorMin)||0),0);
+  const totMax = d.investimentos.reduce((a,i)=>a+(Number(i.valorMax)||0),0);
+  const minEl = document.getElementById('investTotalMin');
+  const maxEl = document.getElementById('investTotalMax');
+  if(minEl) minEl.textContent = fmtBRL(totMin);
+  if(maxEl) maxEl.textContent = fmtBRL(totMax);
+}
+function moveItem(arr, id, delta){
+  const idx = arr.findIndex(x=>x.id===id);
+  const newIdx = idx+delta;
+  if(newIdx<0 || newIdx>=arr.length) return;
+  const [item] = arr.splice(idx,1);
+  arr.splice(newIdx,0,item);
+}
+
+/* -------- wiring: riscos -------- */
+function wireRiscoCards(panel){
+  const d = state.currentDiag;
+  panel.querySelectorAll('.expandable[data-risco-id]').forEach(card=>{
+    const id = card.dataset.riscoId;
+    const r = findById(d.riscos, id);
+    card.querySelector('.expandable-head').addEventListener('click', (e)=>{
+      if(e.target.closest('.expandable-actions')) return;
+      card.classList.toggle('open');
+    });
+    const inputs = card.querySelectorAll('.expandable-body input[type=text], .expandable-body textarea, .expandable-body select');
+    const fieldOrder = ['item','risco','descricao','consequencia','recomendacao','prazo','observacoes'];
+    let fi=0;
+    inputs.forEach(inp=>{
+      const key = fieldOrder[fi]; fi++;
+      const evt = inp.tagName==='SELECT'?'change':'input';
+      inp.addEventListener(evt, ()=>{ r[key]=inp.value; scheduleSave(); });
+    });
+    card.querySelectorAll('.r-nivel-group .opt-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{ r.nivel = btn.dataset.val; scheduleSave(); renderStepPanel(); });
+    });
+    card.querySelector('.r-retirada').addEventListener('change', (e)=>{ r.retiradaImediata = e.target.checked; scheduleSave(); renderStepPanel(); });
+    card.querySelector('.r-up').addEventListener('click', ()=>{ moveItem(d.riscos, id, -1); scheduleSave(); renderStepPanel(); });
+    card.querySelector('.r-down').addEventListener('click', ()=>{ moveItem(d.riscos, id, 1); scheduleSave(); renderStepPanel(); });
+    card.querySelector('.r-del').addEventListener('click', ()=>{
+      const idx = d.riscos.findIndex(x=>x.id===id); d.riscos.splice(idx,1); scheduleSave(); renderStepPanel();
+    });
+    const fotoInput = card.querySelector('.r-foto-input');
+    if(fotoInput){
+      fotoInput.addEventListener('change', async (e)=>{
+        const file = e.target.files[0]; if(!file) return;
+        const {dataUrl,width,height} = await compressImage(file);
+        r.foto = {id:uuid(), dataUrl, width, height, caption:"", local:"", classificacao:"risco"};
+        scheduleSave(); renderStepPanel();
+      });
+    }
+    if(r.foto){
+      const grid = card.querySelector('.r-photo-grid');
+      wirePhotoGrid(grid, ()=>[r.foto], renderStepPanel, ()=>{ r.foto = null; });
+    }
+  });
+}
+
+/* -------- wiring: prioridades -------- */
+function wirePrioridadeCards(panel){
+  const d = state.currentDiag;
+  const pilarKeys = Object.keys(PILARES);
+  panel.querySelectorAll('.expandable[data-pri-id]').forEach(card=>{
+    const id = card.dataset.priId;
+    const p = findById(d.prioridades, id);
+    card.querySelector('.expandable-head').addEventListener('click', (e)=>{
+      if(e.target.closest('.expandable-actions')) return;
+      card.classList.toggle('open');
+    });
+    const inputs = card.querySelectorAll('.expandable-body input[type=text], .expandable-body textarea, .expandable-body select');
+    const fieldOrder = ['recomendacao','descricao','pilarLabel','categoria','prazo','observacoes'];
+    let fi=0;
+    inputs.forEach(inp=>{
+      const key = fieldOrder[fi]; fi++;
+      const evt = inp.tagName==='SELECT'?'change':'input';
+      inp.addEventListener(evt, ()=>{
+        if(key==='pilarLabel'){
+          const found = pilarKeys.find(k=>PILARES[k]===inp.value);
+          p.pilar = found || "";
+        } else { p[key] = inp.value; }
+        scheduleSave();
+        if(inp.tagName==='SELECT') renderStepPanel();
+      });
+    });
+    card.querySelector('.p-up').addEventListener('click', ()=>{ moveItem(d.prioridades, id, -1); scheduleSave(); renderStepPanel(); });
+    card.querySelector('.p-down').addEventListener('click', ()=>{ moveItem(d.prioridades, id, 1); scheduleSave(); renderStepPanel(); });
+    card.querySelector('.p-del').addEventListener('click', ()=>{
+      const idx = d.prioridades.findIndex(x=>x.id===id); d.prioridades.splice(idx,1); scheduleSave(); renderStepPanel();
+    });
+  });
+}
+
+/* -------- wiring: investimentos -------- */
+function wireInvestCards(panel){
+  const d = state.currentDiag;
+  panel.querySelectorAll('.expandable[data-inv-id]').forEach(card=>{
+    const id = card.dataset.invId;
+    const inv = findById(d.investimentos, id);
+    card.querySelector('.expandable-head').addEventListener('click', (e)=>{
+      if(e.target.closest('.expandable-actions')) return;
+      card.classList.toggle('open');
+    });
+    const inputs = card.querySelectorAll('.expandable-body input, .expandable-body textarea');
+    const fieldOrder = ['recomendacaoRelacionada','descricao','valorMin','valorMax','observacoes'];
+    let fi=0;
+    inputs.forEach(inp=>{
+      const key = fieldOrder[fi]; fi++;
+      inp.addEventListener('input', ()=>{
+        inv[key] = (key==='valorMin'||key==='valorMax') ? Number(inp.value)||0 : inp.value;
+        scheduleSave();
+        if(key==='recomendacaoRelacionada'){
+          const titleEl = card.querySelector('.expandable-head .title');
+          titleEl.innerHTML = `${escapeHtml(inv.recomendacaoRelacionada||'Nova estimativa')} <small>${fmtBRL(inv.valorMin)} — ${fmtBRL(inv.valorMax)}</small>`;
+        }
+        if(key==='valorMin'||key==='valorMax'){
+          const smallEl = card.querySelector('.expandable-head .title small');
+          if(smallEl) smallEl.textContent = `${fmtBRL(inv.valorMin)} — ${fmtBRL(inv.valorMax)}`;
+          updateInvestTotals();
+        }
+      });
+    });
+    card.querySelector('.inv-del').addEventListener('click', ()=>{
+      const idx = d.investimentos.findIndex(x=>x.id===id); d.investimentos.splice(idx,1); scheduleSave(); renderStepPanel();
+    });
+  });
+}
+
+/* -------- gerar sugestão resumo executivo -------- */
+function gerarSugestaoResumo(d){
+  const pilaresOrdenados = Object.keys(PILARES).map(k=>({k,...d.atlasScore[k]})).filter(p=>p.nota>0).sort((a,b)=>a.nota-b.nota);
+  const menores = pilaresOrdenados.slice(0,2);
+  const riscosCriticos = d.riscos.filter(r=>r.nivel==='Crítico');
+  const equipCriticos = d.equipamentosLista.filter(e=>e.estado==='Crítico');
+  const prioridadesImediatas = d.prioridades.filter(p=>p.prazo==='Imediato');
+  const totMin = d.investimentos.reduce((s,i)=>s+(Number(i.valorMin)||0),0);
+  const totMax = d.investimentos.reduce((s,i)=>s+(Number(i.valorMax)||0),0);
+
+  let texto = "";
+  if(menores.length) texto += `Os pilares com menor pontuação no Atlas Score foram ${menores.map(m=>PILARES[m.k]+" (nota "+m.nota+")").join(" e ")}. `;
+  if(riscosCriticos.length) texto += `Foram identificados ${riscosCriticos.length} risco(s) crítico(s): ${riscosCriticos.map(r=>r.item||r.risco).join(", ")}. `;
+  if(equipCriticos.length) texto += `Há ${equipCriticos.length} equipamento(s) em estado crítico: ${equipCriticos.map(e=>e.nome).join(", ")}. `;
+  if(prioridadesImediatas.length) texto += `Existem ${prioridadesImediatas.length} recomendação(ões) de prazo imediato: ${prioridadesImediatas.map(p=>p.recomendacao).join(", ")}. `;
+  if(totMin || totMax) texto += `A faixa total estimada de investimento é de ${fmtBRL(totMin)} a ${fmtBRL(totMax)}.`;
+  if(!texto) texto = "Preencha o Atlas Score, os riscos, os equipamentos e as prioridades para gerar uma sugestão.";
+  d.resumoExecutivo.resultadoGeral = texto;
+}
+
+/* -------- assinaturas: canvas -------- */
+function wireSignatureBlock(panel, key){
+  const d = state.currentDiag;
+  const block = panel.querySelector(`.sig-block[data-sig-key="${key}"]`);
+  if(!block) return;
+  const sig = d.assinaturas[key];
+  if(key==='representante'){
+    const chk = block.querySelector('.chk-nao-assinou');
+    chk.addEventListener('change', ()=>{
+      sig.naoAssinou = chk.checked;
+      block.querySelector('.sig-area').style.display = chk.checked ? 'none' : 'block';
+      if(chk.checked) sig.assinaturaDataUrl = "";
+      scheduleSave();
+    });
+    if(chk.checked) return;
+  }
+  const canvas = block.querySelector('.sig-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(sig.assinaturaDataUrl){
+    const img = new Image();
+    img.onload = ()=>ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    img.src = sig.assinaturaDataUrl;
+  }
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.lineCap='round';
+  let drawing = false, lastX=0, lastY=0;
+  function pos(e){
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {x:(clientX-rect.left)*scaleX, y:(clientY-rect.top)*scaleY};
+  }
+  function start(e){ e.preventDefault(); drawing=true; const p=pos(e); lastX=p.x; lastY=p.y; }
+  function move(e){
+    if(!drawing) return; e.preventDefault();
+    const p = pos(e);
+    ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(p.x,p.y); ctx.stroke();
+    lastX=p.x; lastY=p.y;
+  }
+  function end(){
+    if(!drawing) return;
+    drawing=false;
+    sig.assinaturaDataUrl = canvas.toDataURL('image/png');
+    scheduleSave();
+  }
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start, {passive:false});
+  canvas.addEventListener('touchmove', move, {passive:false});
+  canvas.addEventListener('touchend', end);
+  block.querySelector(`[data-clear-sig="${key}"]`).addEventListener('click', ()=>{
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    sig.assinaturaDataUrl = "";
+    scheduleSave();
+  });
+}
+
+/* ============================================================
+   GERAÇÃO DE PDF
+   ============================================================ */
+function confirmarGerarPDF(){
+  const d = state.currentDiag;
+  const pct = percentualPreenchido(d);
+  if(pct < 100){
+    openModal(`
+      <h3>Gerar PDF com pendências</h3>
+      <p>O diagnóstico está ${pct}% preenchido. Deseja gerar o PDF preliminar mesmo assim?</p>
+      <div class="modal-actions">
+        <button class="btn" id="cancelPdf">Cancelar</button>
+        <button class="btn btn-primary" id="confirmPdf">Gerar mesmo assim</button>
+      </div>
+    `);
+    document.getElementById('cancelPdf').onclick = closeModal;
+    document.getElementById('confirmPdf').onclick = ()=>{ closeModal(); gerarPDF(d); };
+  } else {
+    gerarPDF(d);
+  }
+}
+async function gerarPDFparaId(id){
+  const d = await dbGet(id);
+  if(!d) return;
+  gerarPDF(d);
+}
+
+function checkSpace(doc, y, needed, margin){
+  const pageH = doc.internal.pageSize.getHeight();
+  if(y + needed > pageH - margin){ doc.addPage(); drawWatermark(doc); return margin; }
+  return y;
+}
+function drawWatermark(doc){
+  const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
+  doc.saveGraphicsState && doc.saveGraphicsState();
+  doc.setTextColor(230,230,230);
+  doc.setFontSize(40);
+  doc.text("RELATÓRIO PRELIMINAR", w/2, h/2, {angle:35, align:'center'});
+  doc.restoreGraphicsState && doc.restoreGraphicsState();
+  doc.setTextColor(20,20,20);
+}
+function drawFooterAll(doc, diag){
+  const total = doc.internal.getNumberOfPages();
+  for(let i=1;i<=total;i++){
+    doc.setPage(i);
+    const w = doc.internal.pageSize.getWidth(), h = doc.internal.pageSize.getHeight();
+    doc.setFontSize(8);
+    doc.setTextColor(120,120,120);
+    doc.text(`${diag.numero || ''}`, 15, h-10);
+    doc.text(`${diag.identificacao.condominio || ''}`, w/2, h-10, {align:'center'});
+    doc.text(`Página ${i}/${total}`, w-15, h-10, {align:'right'});
+    doc.setFontSize(7.5);
+    doc.setTextColor(150,150,150);
+    doc.text('"A Atlas não vende equipamentos. A Atlas protege decisões."', w/2, h-6, {align:'center'});
+    doc.setTextColor(20,20,20);
+  }
+}
+function sectionTitle(doc, title, y){
+  const w = doc.internal.pageSize.getWidth();
+  doc.setFillColor(11,20,27);
+  doc.rect(15, y, w-30, 10, 'F');
+  doc.setTextColor(47,201,184);
+  doc.setFontSize(13);
+  doc.setFont(undefined,'bold');
+  doc.text(title, 19, y+7);
+  doc.setFont(undefined,'normal');
+  doc.setTextColor(20,20,20);
+  return y+18;
+}
+function addImageFit(doc, dataUrl, x, y, maxW, maxH, imgW, imgH){
+  let w = maxW, h = maxW * (imgH/imgW);
+  if(h > maxH){ h = maxH; w = maxH * (imgW/imgH); }
+  try{ doc.addImage(dataUrl, 'JPEG', x, y, w, h); }catch(e){}
+  return h;
+}
+
+async function gerarPDF(diag){
+  if(!libAvailable('jspdf')){
+    alert("A geração de PDF requer conexão com a internet para carregar as bibliotecas necessárias. Tente novamente quando estiver online. Seus dados já estão salvos neste navegador.");
+    return;
+  }
+  showToast("Gerando PDF preliminar...");
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 15;
+
+  /* -------- CAPA -------- */
+  doc.setFillColor(11,20,27);
+  doc.rect(0,0,pageW, doc.internal.pageSize.getHeight(), 'F');
+  doc.setDrawColor(47,201,184);
+  doc.setLineWidth(1);
+  doc.circle(pageW/2, 60, 16);
+  doc.setTextColor(47,201,184);
+  doc.setFontSize(20);
+  doc.setFont(undefined,'bold');
+  doc.text("A", pageW/2, 65, {align:'center'});
+  doc.setFontSize(24);
+  doc.text("ATLAS", pageW/2, 95, {align:'center'});
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(237,234,226);
+  doc.text("Inteligência Técnica para Academias Condominiais", pageW/2, 103, {align:'center'});
+  doc.setFontSize(16);
+  doc.setTextColor(255,255,255);
+  doc.text("Relatório de Diagnóstico Técnico", pageW/2, 130, {align:'center'});
+  doc.setFontSize(20);
+  doc.setTextColor(47,201,184);
+  doc.text(diag.identificacao.condominio || "Condomínio não identificado", pageW/2, 145, {align:'center', maxWidth:pageW-40});
+  doc.setFontSize(11);
+  doc.setTextColor(184,194,201);
+  doc.text(`Data da visita: ${fmtDateOnly(diag.identificacao.dataVisita)}`, pageW/2, 158, {align:'center'});
+  doc.text(`Diagnóstico nº ${diag.numero||'—'}`, pageW/2, 165, {align:'center'});
+  doc.text(`Consultor: ${diag.identificacao.consultor||'—'}`, pageW/2, 172, {align:'center'});
+  doc.setFontSize(41);
+  doc.setTextColor(30,45,52);
+  doc.text("RELATÓRIO PRELIMINAR", pageW/2, 220, {angle:25, align:'center'});
+  doc.setFontSize(10.5);
+  doc.setTextColor(237,234,226);
+  doc.setFont(undefined,'italic');
+  doc.text('"A Atlas não vende equipamentos. A Atlas protege decisões."', pageW/2, 270, {align:'center'});
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(150,160,166);
+  doc.text("Documento preliminar emitido durante a visita técnica. As informações, recomendações e estimativas apresentadas", pageW/2, 282, {align:'center'});
+  doc.text("estão sujeitas à revisão, validação técnica e complementação antes da emissão do relatório final.", pageW/2, 287, {align:'center'});
+
+  /* -------- RELATÓRIO EXECUTIVO -------- */
+  doc.addPage();
+  drawWatermark(doc);
+  let y = sectionTitle(doc, "RELATÓRIO EXECUTIVO", margin);
+  const media = calcMediaScore(diag);
+  doc.setFontSize(10);
+  doc.text(`Atlas Score geral: ${media?media.toFixed(1):'—'} (${media?classificacaoScore(media):'—'})`, margin, y); y+=8;
+  const ctxLines = doc.splitTextToSize(diag.resumoExecutivo.contexto || "Não preenchido.", pageW-2*margin);
+  doc.setFont(undefined,'bold'); doc.text("Contexto:", margin, y); doc.setFont(undefined,'normal'); y+=5;
+  doc.text(ctxLines, margin, y); y += ctxLines.length*4.6 + 6;
+  y = checkSpace(doc,y,20,margin);
+  doc.setFont(undefined,'bold'); doc.text("Principais achados:", margin, y); doc.setFont(undefined,'normal'); y+=6;
+  (diag.resumoExecutivo.achados.length? diag.resumoExecutivo.achados : ["Nenhum achado registrado."]).forEach(a=>{
+    y = checkSpace(doc,y,8,margin);
+    const lines = doc.splitTextToSize("• "+a, pageW-2*margin);
+    doc.text(lines, margin, y); y += lines.length*4.6+2;
+  });
+  y = checkSpace(doc,y,20,margin);
+  doc.setFont(undefined,'bold'); doc.text("Recomendação central:", margin, y); doc.setFont(undefined,'normal'); y+=6;
+  const recLines = doc.splitTextToSize(diag.resumoExecutivo.recomendacaoCentral || "Não definida.", pageW-2*margin);
+  doc.text(recLines, margin, y); y+= recLines.length*4.6;
+
+  /* -------- DIAGNÓSTICO TÉCNICO -------- */
+  doc.addPage(); drawWatermark(doc);
+  y = sectionTitle(doc, "DIAGNÓSTICO TÉCNICO", margin);
+  for(const key of Object.keys(CATEGORIAS_TECNICAS)){
+    const cat = diag.categorias[key];
+    if(!cat.situacao && !cat.descricao) continue;
+    y = checkSpace(doc,y,30,margin);
+    doc.setFont(undefined,'bold'); doc.setFontSize(11);
+    doc.text(`${CATEGORIAS_TECNICAS[key]} — ${cat.situacao||'Não avaliado'}`, margin, y); y+=6;
+    doc.setFont(undefined,'normal'); doc.setFontSize(9.5);
+    const descLines = doc.splitTextToSize(cat.descricao||"—", pageW-2*margin);
+    doc.text(descLines, margin, y); y += descLines.length*4.4+3;
+    if(cat.fotos && cat.fotos.length){
+      let x = margin;
+      cat.fotos.slice(0,2).forEach(f=>{
+        y = checkSpace(doc,y,45,margin);
+        const h = addImageFit(doc, f.dataUrl, x, y, 55, 40, f.width, f.height);
+        x += 60;
+        if(x > pageW-margin-55){ x = margin; y += 45; }
+      });
+      y += 45;
+    }
+    y+=4;
+  }
+
+  /* -------- ATLAS SCORE — PDF ROBUSTO / SEM DEPENDÊNCIA DE CANVAS -------- */
+  doc.addPage(); drawWatermark(doc);
+  y = sectionTitle(doc, "ATLAS SCORE™", margin);
+
+  // O Score deve existir no PDF mesmo se Chart.js, canvas oculto ou CDN estiverem indisponíveis no celular.
+  const scoreMedia = calcMediaScore(diag);
+  const scoreText = scoreMedia !== null ? scoreMedia.toFixed(1) : '—';
+  const scoreClass = scoreMedia !== null ? classificacaoScore(scoreMedia) : 'Aguardando avaliação';
+
+  // Cartão principal do Score
+  const cardW = pageW - (margin * 2);
+  doc.setFillColor(11,20,27);
+  doc.setDrawColor(47,201,184);
+  doc.setLineWidth(0.8);
+  doc.roundedRect(margin, y, cardW, 42, 4, 4, 'FD');
+  doc.setTextColor(47,201,184);
+  doc.setFont(undefined,'bold');
+  doc.setFontSize(27);
+  doc.text(scoreText, margin + 12, y + 27);
+  doc.setTextColor(237,234,226);
+  doc.setFontSize(11);
+  doc.text('NOTA GERAL', margin + 12, y + 35);
+  doc.setFontSize(15);
+  doc.text(scoreClass, margin + 65, y + 23);
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(184,194,201);
+  doc.text('Média simples das notas atribuídas aos cinco pilares do Atlas Score™.', margin + 65, y + 31);
+  doc.setTextColor(20,20,20);
+  y += 54;
+
+  // Tabela visual dos cinco pilares, desenhada diretamente no PDF.
+  for(const key of Object.keys(PILARES)){
+    const pillar = (diag.atlasScore && diag.atlasScore[key]) || {};
+    const nota = pillar.nota || null;
+    const label = nota ? NOTA_LABELS[nota] : 'Não avaliado';
+    const rowH = 28;
+    y = checkSpace(doc, y, rowH + 5, margin);
+
+    doc.setFillColor(247,249,250);
+    doc.setDrawColor(215,220,224);
+    doc.roundedRect(margin, y, cardW, rowH, 2, 2, 'FD');
+
+    doc.setFont(undefined,'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(20,20,20);
+    doc.text(PILARES[key], margin + 6, y + 9);
+
+    doc.setFontSize(14);
+    doc.setTextColor(47,201,184);
+    doc.text(nota ? String(nota) : '—', margin + cardW - 48, y + 10);
+
+    doc.setFont(undefined,'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(90,100,106);
+    doc.text(label, margin + 6, y + 19);
+
+    const just = String(pillar.justificativa || '—');
+    const justLines = doc.splitTextToSize('Justificativa: ' + just, cardW - 65);
+    doc.setFontSize(7.8);
+    doc.text(justLines.slice(0,1), margin + 58, y + 19);
+    doc.setTextColor(20,20,20);
+    y += rowH + 5;
+  }
+
+  // Radar é apenas complementar; nunca pode bloquear ou remover o Score textual.
+
+  /* -------- EQUIPAMENTOS -------- */
+  if(diag.equipamentosLista.length){
+    doc.addPage(); drawWatermark(doc);
+    y = sectionTitle(doc, "EQUIPAMENTOS", margin);
+    doc.autoTable({
+      startY:y, margin:{left:margin,right:margin},
+      head:[["Código","Nome","Estado","Recomendação","Prioridade"]],
+      body:diag.equipamentosLista.map(e=>[e.codigo,e.nome,e.estado,e.recomendacao,e.prioridade]),
+      styles:{fontSize:8, cellPadding:2.5, overflow:'linebreak'},
+      headStyles:{fillColor:[11,20,27], textColor:[47,201,184]},
+      theme:'grid'
+    });
+  }
+
+  /* -------- MAPA DE RISCOS -------- */
+  if(diag.riscos.length){
+    doc.addPage(); drawWatermark(doc);
+    y = sectionTitle(doc, "MAPA DE RISCOS", margin);
+    doc.autoTable({
+      startY:y, margin:{left:margin,right:margin},
+      head:[["Item/local","Risco","Nível","Recomendação","Prazo","Retirada imediata"]],
+      body:diag.riscos.map(r=>[r.item,r.risco,r.nivel,r.recomendacao,r.prazo, r.retiradaImediata?"SIM":"—"]),
+      styles:{fontSize:8, cellPadding:2.5, overflow:'linebreak'},
+      headStyles:{fillColor:[11,20,27], textColor:[47,201,184]},
+      theme:'grid',
+      didParseCell: function(data){
+        if(data.section==='body' && data.row.raw[5]==='SIM'){ data.cell.styles.textColor=[214,92,79]; data.cell.styles.fontStyle='bold'; }
+      }
+    });
+  }
+
+  /* -------- PLANO DE PRIORIDADES -------- */
+  if(diag.prioridades.length){
+    doc.addPage(); drawWatermark(doc);
+    y = sectionTitle(doc, "PLANO DE PRIORIDADES", margin);
+    doc.autoTable({
+      startY:y, margin:{left:margin,right:margin},
+      head:[["Recomendação","Pilar","Categoria","Prazo"]],
+      body:diag.prioridades.map(p=>[p.recomendacao, PILARES[p.pilar]||"—", p.categoria, p.prazo]),
+      styles:{fontSize:8.5, cellPadding:2.5, overflow:'linebreak'},
+      headStyles:{fillColor:[11,20,27], textColor:[47,201,184]},
+      theme:'grid'
+    });
+  }
+
+  /* -------- INVESTIMENTOS -------- */
+  if(diag.investimentos.length){
+    doc.addPage(); drawWatermark(doc);
+    y = sectionTitle(doc, "INVESTIMENTOS", margin);
+    const totMin = diag.investimentos.reduce((s,i)=>s+(Number(i.valorMin)||0),0);
+    const totMax = diag.investimentos.reduce((s,i)=>s+(Number(i.valorMax)||0),0);
+    doc.autoTable({
+      startY:y, margin:{left:margin,right:margin},
+      head:[["Recomendação","Descrição","Valor mín.","Valor máx."]],
+      body:diag.investimentos.map(i=>[i.recomendacaoRelacionada, i.descricao, fmtBRL(i.valorMin), fmtBRL(i.valorMax)]),
+      styles:{fontSize:8.5, cellPadding:2.5, overflow:'linebreak'},
+      headStyles:{fillColor:[11,20,27], textColor:[47,201,184]},
+      theme:'grid'
+    });
+    let yy = doc.lastAutoTable.finalY + 10;
+    doc.setFont(undefined,'bold'); doc.setFontSize(11);
+    doc.text(`Faixa total estimada: ${fmtBRL(totMin)} — ${fmtBRL(totMax)}`, margin, yy);
+    yy += 8;
+    doc.setFont(undefined,'italic'); doc.setFontSize(8.5);
+    const avisoLines = doc.splitTextToSize("As faixas de investimento apresentadas são estimativas preliminares e referenciais. Não constituem orçamento definitivo, proposta comercial ou compromisso de fornecimento.", pageW-2*margin);
+    doc.text(avisoLines, margin, yy);
+    doc.setFont(undefined,'normal');
+  }
+
+  /* -------- ASSEMBLEIA -------- */
+  if(diag.assembleia.incluirNoPdf){
+    doc.addPage(); drawWatermark(doc);
+    y = sectionTitle(doc, "MATERIAL PARA ASSEMBLEIA", margin);
+    doc.setFontSize(10);
+    const riscosCriticos = diag.riscos.filter(r=>r.nivel==='Crítico').length;
+    const totMin = diag.investimentos.reduce((s,i)=>s+(Number(i.valorMin)||0),0);
+    const totMax = diag.investimentos.reduce((s,i)=>s+(Number(i.valorMax)||0),0);
+    const linhas = [
+      `Condomínio: ${diag.identificacao.condominio||'—'}`,
+      `Data da visita: ${fmtDateOnly(diag.identificacao.dataVisita)}`,
+      `Atlas Score geral: ${media?media.toFixed(1):'—'}`,
+      `Riscos críticos identificados: ${riscosCriticos}`,
+    ];
+    linhas.forEach(l=>{ doc.text(l, margin, y); y+=7; });
+    if(diag.assembleia.incluirValores){ doc.text(`Faixa estimada de investimento: ${fmtBRL(totMin)} — ${fmtBRL(totMax)}`, margin, y); y+=7; }
+    y+=3;
+    doc.setFont(undefined,'bold'); doc.text("Próximos passos:", margin, y); doc.setFont(undefined,'normal'); y+=6;
+    const passosLines = doc.splitTextToSize(diag.assembleia.textoProximosPassos || diag.resumoExecutivo.proximosPassos || "—", pageW-2*margin);
+    doc.text(passosLines, margin, y);
+  }
+
+  /* -------- ASSINATURAS -------- */
+  doc.addPage(); drawWatermark(doc);
+  y = sectionTitle(doc, "ASSINATURAS", margin);
+  for(const key of ['consultor','representante']){
+    const sig = diag.assinaturas[key];
+    y = checkSpace(doc,y,55,margin);
+    doc.setFont(undefined,'bold'); doc.setFontSize(10.5);
+    doc.text(key==='consultor'?"Consultor Atlas":"Representante do condomínio", margin, y); y+=6;
+    doc.setFont(undefined,'normal'); doc.setFontSize(9);
+    doc.text(`Nome: ${sig.nome||'—'}   Cargo: ${sig.cargo||'—'}`, margin, y); y+=5;
+    doc.text(`Data: ${fmtDateOnly(sig.data)}   Hora: ${sig.hora||'—'}`, margin, y); y+=6;
+    if(sig.naoAssinou){
+      doc.setFont(undefined,'italic'); doc.text("O representante optou por não assinar.", margin, y); doc.setFont(undefined,'normal'); y+=8;
+    } else if(sig.assinaturaDataUrl){
+      try{ doc.addImage(sig.assinaturaDataUrl,'PNG',margin,y,60,20); }catch(e){}
+      y += 26;
+    } else { doc.text("Assinatura não coletada.", margin, y); y+=8; }
+  }
+  y = checkSpace(doc,y,16,margin);
+  doc.setFont(undefined,'italic'); doc.setFontSize(8.5);
+  const confLines = doc.splitTextToSize("A assinatura confirma o acompanhamento da visita e o recebimento da prévia, não representando concordância integral com todas as conclusões técnicas.", pageW-2*margin);
+  doc.text(confLines, margin, y);
+  doc.setFont(undefined,'normal');
+
+  drawFooterAll(doc, diag);
+  doc.save(`atlas-diagnostico-${(diag.numero||diag.id)}.pdf`);
+  showToast("PDF preliminar gerado com sucesso.");
+}
+
+/* ============================================================
+   INICIALIZAÇÃO
+   ============================================================ */
+(async function init(){
+  try{ await openDB(); }catch(e){ console.error("Erro ao abrir IndexedDB", e); }
+  await refreshHome();
+})();
+
+// Quando Chart.js/jsPDF terminarem de carregar (local ou CDN), atualiza a etapa atual
+// caso o usuário já esteja no Atlas Score ou na Revisão (remove avisos, desenha o gráfico).
+window.__atlasLibsReady.then(()=>{
+  if(state.currentDiag && (state.currentStep===2 || state.currentStep===7)) renderStepPanel();
+});
+
+// Registra o service worker (funciona apenas quando o app é acessado via http/https;
+// em arquivo local aberto por duplo clique, o navegador ignora isso sem gerar erro).
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.protocol==='http:')){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js?v=5').catch(()=>{});
+  });
+}
+</script>
+
+<script>
+/* ATLAS MOBILE / PWA */
+(function(){
+  let deferredPrompt=null;
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;});
+  window.atlasInstall=async function(){
+    if(!deferredPrompt){showToast('No iPhone: use Compartilhar → Adicionar à Tela de Início.');return;}
+    deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null;
+  };
+  // Prevent accidental zoom while keeping normal page zoom behavior for accessibility.
+  document.addEventListener('touchstart',e=>{if(e.touches.length>1)e.preventDefault();},{passive:false});
+})();
+</script>
+</body>
+</html>
