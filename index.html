@@ -2145,6 +2145,85 @@ function addImageFit(doc, dataUrl, x, y, maxW, maxH, imgW, imgH){
   return h;
 }
 
+
+function drawAtlasRadarPDF(doc, diag, cx, cy, radius){
+  const keys = Object.keys(PILARES);
+  const labels = keys.map(k=>PILARES[k]);
+  const values = keys.map(k=>Number((diag.atlasScore?.[k]?.nota)||0));
+  const n = keys.length;
+  const pts = [];
+  const angleFor = i => (-Math.PI/2) + (i * (Math.PI*2/n));
+  const pt = (r,i) => {
+    const a = angleFor(i);
+    return {x:cx + Math.cos(a)*r, y:cy + Math.sin(a)*r};
+  };
+
+  // Fundo discreto do gráfico.
+  doc.setFillColor(11,20,27);
+  doc.setDrawColor(38,55,64);
+  doc.setLineWidth(0.35);
+  doc.roundedRect(cx-radius-34, cy-radius-25, (radius*2)+68, (radius*2)+50, 3, 3, 'FD');
+
+  // Grades 1–5.
+  for(let level=1; level<=5; level++){
+    const rr = radius*(level/5);
+    doc.setDrawColor(45,64,73);
+    doc.setLineWidth(level===5 ? 0.5 : 0.3);
+    const ring = [];
+    for(let i=0;i<n;i++) ring.push(pt(rr,i));
+    for(let i=0;i<n;i++){
+      const a=ring[i], b=ring[(i+1)%n];
+      doc.line(a.x,a.y,b.x,b.y);
+    }
+    if(level<5){
+      doc.setFontSize(6.5); doc.setTextColor(155,168,174);
+      doc.text(String(level), cx-2.2, cy-rr+2.2);
+    }
+  }
+
+  // Eixos.
+  for(let i=0;i<n;i++){
+    const p=pt(radius,i);
+    doc.setDrawColor(45,64,73); doc.setLineWidth(0.3);
+    doc.line(cx,cy,p.x,p.y);
+  }
+  doc.setFontSize(7); doc.setTextColor(155,168,174);
+  doc.text('5', cx-2.2, cy-radius+2.2);
+
+  // Área preenchida + contorno.
+  const dataPts = values.map((v,i)=>pt(radius*(Math.max(0,Math.min(5,v))/5),i));
+  doc.setFillColor(47,201,184);
+  doc.setDrawColor(47,201,184);
+  doc.setLineWidth(1.0);
+  // jsPDF suporta polígono via lines; preencher usando triangle fan.
+  for(let i=1;i<dataPts.length-1;i++){
+    doc.triangle(cx,cy,dataPts[i].x,dataPts[i].y,dataPts[i+1].x,dataPts[i+1].y,'F');
+  }
+  // Transparência não é confiável em todos os jsPDF do celular, então usamos linhas + pequenos segmentos internos.
+  doc.setDrawColor(47,201,184);
+  for(let i=0;i<n;i++){
+    const a=dataPts[i], b=dataPts[(i+1)%n];
+    doc.line(a.x,a.y,b.x,b.y);
+  }
+  dataPts.forEach(p=>{ doc.setFillColor(47,201,184); doc.circle(p.x,p.y,1.6,'F'); });
+
+  // Rótulos externos.
+  doc.setFontSize(8.2); doc.setTextColor(237,234,226);
+  labels.forEach((label,i)=>{
+    const a=angleFor(i);
+    const lr=radius+14;
+    let x=cx+Math.cos(a)*lr;
+    let y=cy+Math.sin(a)*lr;
+    const c=Math.cos(a);
+    const align = c > 0.25 ? 'left' : (c < -0.25 ? 'right' : 'center');
+    let lines = doc.splitTextToSize(label, 42);
+    if(i===0) y += 1;
+    if(i===1 || i===4) y += 1;
+    if(i===2 || i===3) y -= 1;
+    doc.text(lines, x, y, {align});
+  });
+}
+
 async function gerarPDF(diag){
   if(!libAvailable('jspdf')){
     alert("A geração de PDF requer conexão com a internet para carregar as bibliotecas necessárias. Tente novamente quando estiver online. Seus dados já estão salvos neste navegador.");
@@ -2243,43 +2322,45 @@ async function gerarPDF(diag){
     y+=4;
   }
 
-  /* -------- ATLAS SCORE — PDF ROBUSTO / SEM DEPENDÊNCIA DE CANVAS -------- */
+  /* -------- ATLAS SCORE™ — PÁGINA VISUAL -------- */
   doc.addPage(); drawWatermark(doc);
   y = sectionTitle(doc, "ATLAS SCORE™", margin);
 
-  // O Score deve existir no PDF mesmo se Chart.js, canvas oculto ou CDN estiverem indisponíveis no celular.
   const scoreMedia = calcMediaScore(diag);
   const scoreText = scoreMedia !== null ? scoreMedia.toFixed(1) : '—';
   const scoreClass = scoreMedia !== null ? classificacaoScore(scoreMedia) : 'Aguardando avaliação';
-
-  // Cartão principal do Score
   const cardW = pageW - (margin * 2);
+
+  // Cabeçalho do Score.
   doc.setFillColor(11,20,27);
   doc.setDrawColor(47,201,184);
   doc.setLineWidth(0.8);
-  doc.roundedRect(margin, y, cardW, 42, 4, 4, 'FD');
+  doc.roundedRect(margin, y, cardW, 38, 4, 4, 'FD');
   doc.setTextColor(47,201,184);
   doc.setFont(undefined,'bold');
-  doc.setFontSize(27);
-  doc.text(scoreText, margin + 12, y + 27);
+  doc.setFontSize(28);
+  doc.text(scoreText, margin + 12, y + 25);
   doc.setTextColor(237,234,226);
-  doc.setFontSize(11);
-  doc.text('NOTA GERAL', margin + 12, y + 35);
-  doc.setFontSize(15);
-  doc.text(scoreClass, margin + 65, y + 23);
+  doc.setFontSize(10);
+  doc.text('NOTA GERAL', margin + 12, y + 32);
+  doc.setFontSize(16);
+  doc.text(scoreClass, margin + 62, y + 21);
   doc.setFont(undefined,'normal');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8.2);
   doc.setTextColor(184,194,201);
-  doc.text('Média simples das notas atribuídas aos cinco pilares do Atlas Score™.', margin + 65, y + 31);
-  doc.setTextColor(20,20,20);
-  y += 54;
+  doc.text('Média simples dos cinco pilares do Atlas Score™.', margin + 62, y + 29);
+  y += 48;
 
-  // Tabela visual dos cinco pilares, desenhada diretamente no PDF.
+  // Radar profissional desenhado diretamente no PDF: não depende de Chart.js/canvas.
+  drawAtlasRadarPDF(doc, diag, pageW/2, y + 58, 35);
+  y += 108;
+
+  // Resumo dos cinco pilares.
   for(const key of Object.keys(PILARES)){
     const pillar = (diag.atlasScore && diag.atlasScore[key]) || {};
     const nota = pillar.nota || null;
     const label = nota ? NOTA_LABELS[nota] : 'Não avaliado';
-    const rowH = 28;
+    const rowH = 24;
     y = checkSpace(doc, y, rowH + 5, margin);
 
     doc.setFillColor(247,249,250);
@@ -2287,28 +2368,26 @@ async function gerarPDF(diag){
     doc.roundedRect(margin, y, cardW, rowH, 2, 2, 'FD');
 
     doc.setFont(undefined,'bold');
-    doc.setFontSize(10.5);
+    doc.setFontSize(10.2);
     doc.setTextColor(20,20,20);
-    doc.text(PILARES[key], margin + 6, y + 9);
+    doc.text(PILARES[key], margin + 6, y + 8);
 
-    doc.setFontSize(14);
+    doc.setFontSize(13.5);
     doc.setTextColor(47,201,184);
-    doc.text(nota ? String(nota) : '—', margin + cardW - 48, y + 10);
+    doc.text(nota ? String(nota) : '—', margin + cardW - 48, y + 9);
 
     doc.setFont(undefined,'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.7);
     doc.setTextColor(90,100,106);
-    doc.text(label, margin + 6, y + 19);
+    doc.text(label, margin + 6, y + 17);
 
     const just = String(pillar.justificativa || '—');
-    const justLines = doc.splitTextToSize('Justificativa: ' + just, cardW - 65);
-    doc.setFontSize(7.8);
-    doc.text(justLines.slice(0,1), margin + 58, y + 19);
+    const justLines = doc.splitTextToSize('Justificativa: ' + just, cardW - 72);
+    doc.setFontSize(7.5);
+    doc.text(justLines.slice(0,1), margin + 58, y + 17);
     doc.setTextColor(20,20,20);
-    y += rowH + 5;
+    y += rowH + 4;
   }
-
-  // Radar é apenas complementar; nunca pode bloquear ou remover o Score textual.
 
   /* -------- EQUIPAMENTOS -------- */
   if(diag.equipamentosLista.length){
@@ -2448,7 +2527,7 @@ window.__atlasLibsReady.then(()=>{
 // em arquivo local aberto por duplo clique, o navegador ignora isso sem gerar erro).
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.protocol==='http:')){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js?v=5').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=6').catch(()=>{});
   });
 }
 </script>
