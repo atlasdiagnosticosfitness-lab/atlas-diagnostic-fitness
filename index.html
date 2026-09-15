@@ -13,28 +13,32 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script>
-  // Carrega cada biblioteca localmente (pasta vendor/) primeiro; se não existir, usa o CDN como reserva.
-  // Isso permite que o app funcione 100% offline depois que os arquivos forem baixados uma vez para vendor/.
+  // Carregamento robusto: jsPDF precisa estar pronto ANTES do AutoTable.
+  // Cada biblioteca tenta primeiro o arquivo local e depois o CDN.
   function loadLib(localSrc, cdnSrc){
     return new Promise((resolve)=>{
-      const s = document.createElement('script');
-      s.src = localSrc;
-      s.onload = ()=>resolve(true);
-      s.onerror = ()=>{
-        const s2 = document.createElement('script');
-        s2.src = cdnSrc;
-        s2.onload = ()=>resolve(true);
-        s2.onerror = ()=>resolve(false);
-        document.head.appendChild(s2);
+      const add=(src)=>{
+        const s=document.createElement('script');
+        s.src=src;
+        s.onload=()=>resolve(true);
+        s.onerror=()=>resolve(false);
+        document.head.appendChild(s);
       };
+      const s=document.createElement('script');
+      s.src=localSrc;
+      s.onload=()=>resolve(true);
+      s.onerror=()=>add(cdnSrc);
       document.head.appendChild(s);
     });
   }
-  window.__atlasLibsReady = Promise.all([
-    loadLib('./vendor/chart.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js'),
-    loadLib('./vendor/jspdf.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'),
-    loadLib('./vendor/jspdf.plugin.autotable.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js')
-  ]);
+  window.__atlasLibsReady = (async()=>{
+    // Chart é opcional para a interface; o radar nativo do Atlas não depende dele.
+    await loadLib('./vendor/chart.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js');
+    // Ordem obrigatória: jsPDF primeiro, plugin depois.
+    await loadLib('./vendor/jspdf.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await loadLib('./vendor/jspdf.plugin.autotable.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+    return true;
+  })();
 </script>
 <style>
 :root{
@@ -2260,13 +2264,42 @@ function drawAtlasRadarPDF(doc, diag, cx, cy, radius){
 }
 
 async function gerarPDF(diag){
+  showToast("Preparando PDF...");
+  try{ await window.__atlasLibsReady; }catch(e){}
   if(!libAvailable('jspdf')){
-    alert("A geração de PDF requer conexão com a internet para carregar as bibliotecas necessárias. Tente novamente quando estiver online. Seus dados já estão salvos neste navegador.");
+    alert("O módulo de PDF não conseguiu carregar. Verifique a conexão com a internet e recarregue o Atlas uma vez. Seus dados continuam salvos neste navegador.");
     return;
   }
   showToast("Gerando PDF preliminar...");
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'mm', format:'a4'});
+  // Fallback interno para tabelas caso o plugin AutoTable não carregue.
+  if(typeof doc.autoTable !== 'function'){
+    doc.autoTable = function(opts){
+      const left=(opts.margin&&opts.margin.left)||15;
+      const right=(opts.margin&&opts.margin.right)||15;
+      const startY=opts.startY||20;
+      const rows=[...(opts.head||[]), ...(opts.body||[])];
+      const cols=rows[0]?rows[0].length:0;
+      const width=doc.internal.pageSize.getWidth()-left-right;
+      const colW=cols?width/cols:width;
+      let yy=startY;
+      doc.setFontSize((opts.styles&&opts.styles.fontSize)||7.5);
+      rows.forEach((row,ri)=>{
+        const h=10;
+        if(yy+h>doc.internal.pageSize.getHeight()-18){ doc.addPage(); drawWatermark(doc); yy=20; }
+        if(ri===0 && opts.head && opts.head.length){ doc.setFillColor(11,20,27); doc.setTextColor(47,201,184); doc.setFont(undefined,'bold'); doc.rect(left,yy,width,h,'F'); }
+        else { doc.setFillColor(247,249,250); doc.setTextColor(20,20,20); doc.setFont(undefined,'normal'); doc.rect(left,yy,width,h,'F'); }
+        row.forEach((cell,ci)=>{
+          const text=String(cell??'').replace(/\s+/g,' ').slice(0,42);
+          doc.text(text,left+ci*colW+2,yy+6,{maxWidth:Math.max(10,colW-4)});
+          doc.setDrawColor(210,215,219); doc.rect(left+ci*colW,yy,colW,h,'S');
+        });
+        yy+=h;
+      });
+      doc.lastAutoTable={finalY:yy};
+    };
+  }
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 15;
 
@@ -2552,7 +2585,7 @@ async function gerarPDF(diag){
   await refreshHome();
 })();
 
-// Quando Chart.js/jsPDF terminarem de carregar (local ou CDN), atualiza a etapa atual
+// Quando as bibliotecas terminarem de carregar (local ou CDN), atualiza a etapa atual
 // caso o usuário já esteja no Atlas Score ou na Revisão (remove avisos, desenha o gráfico).
 window.__atlasLibsReady.then(()=>{
   if(state.currentDiag && (state.currentStep===2 || state.currentStep===7)) renderStepPanel();
@@ -2562,7 +2595,7 @@ window.__atlasLibsReady.then(()=>{
 // em arquivo local aberto por duplo clique, o navegador ignora isso sem gerar erro).
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.protocol==='http:')){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js?v=7').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=8').catch(()=>{});
   });
 }
 </script>
