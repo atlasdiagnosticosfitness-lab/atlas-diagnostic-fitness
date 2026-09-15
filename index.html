@@ -15,28 +15,45 @@
 <script>
   // Carregamento robusto: jsPDF precisa estar pronto ANTES do AutoTable.
   // Cada biblioteca tenta primeiro o arquivo local e depois o CDN.
-  function loadLib(localSrc, cdnSrc){
+  function loadLib(localSrc, cdnSources){
+    const sources = Array.isArray(cdnSources) ? cdnSources : [cdnSources];
     return new Promise((resolve)=>{
-      const add=(src)=>{
+      const trySrc=(src, i)=>{
         const s=document.createElement('script');
         s.src=src;
+        s.async=false;
         s.onload=()=>resolve(true);
-        s.onerror=()=>resolve(false);
+        s.onerror=()=>{
+          if(i < sources.length) trySrc(sources[i], i+1);
+          else resolve(false);
+        };
         document.head.appendChild(s);
       };
       const s=document.createElement('script');
       s.src=localSrc;
+      s.async=false;
       s.onload=()=>resolve(true);
-      s.onerror=()=>add(cdnSrc);
+      s.onerror=()=>trySrc(sources[0], 1);
       document.head.appendChild(s);
     });
   }
   window.__atlasLibsReady = (async()=>{
     // Chart é opcional para a interface; o radar nativo do Atlas não depende dele.
-    await loadLib('./vendor/chart.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js');
-    // Ordem obrigatória: jsPDF primeiro, plugin depois.
-    await loadLib('./vendor/jspdf.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    await loadLib('./vendor/jspdf.plugin.autotable.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+    await loadLib('./vendor/chart.umd.min.js', [
+      'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js',
+      'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'
+    ]);
+    // jsPDF é obrigatório para exportação. Usamos duas CDN como fallback para iOS/PWA.
+    await loadLib('./vendor/jspdf.umd.min.js', [
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+      'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'
+    ]);
+    await loadLib('./vendor/jspdf.plugin.autotable.min.js', [
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+      'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
+      'https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'
+    ]);
     return true;
   })();
 </script>
@@ -2595,7 +2612,7 @@ window.__atlasLibsReady.then(()=>{
 // em arquivo local aberto por duplo clique, o navegador ignora isso sem gerar erro).
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.protocol==='http:')){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js?v=8').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=9').catch(()=>{});
   });
 }
 </script>
