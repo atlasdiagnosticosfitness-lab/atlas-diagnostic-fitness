@@ -1,4 +1,4 @@
-const CACHE='atlas-diagnostic-fitness-v10';
+const CACHE='atlas-diagnostic-fitness-v11';
 const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./sw.js',
   './vendor/jspdf.umd.min.js','./vendor/jspdf.plugin.autotable.min.js','./vendor/chart.umd.min.js'];
 const CDNS=[

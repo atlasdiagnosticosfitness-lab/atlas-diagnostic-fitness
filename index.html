@@ -2164,6 +2164,23 @@ function drawWatermark(doc){
   doc.setFontSize(40);
   doc.text("RELATÓRIO PRELIMINAR", w/2, h/2, {angle:35, align:'center'});
   doc.restoreGraphicsState && doc.restoreGraphicsState();
+
+  // Marca d'água de branding: o emblema da Atlas (círculo duplo + "A"), bem discreto,
+  // ancorado no canto inferior direito de cada página interna.
+  const bx = w - 30, by = h - 52, br = 22;
+  doc.setDrawColor(224,236,234);
+  doc.setLineWidth(1.1);
+  doc.circle(bx, by, br, 'S');
+  doc.setLineWidth(0.6);
+  doc.circle(bx, by, br*0.72, 'S');
+  doc.setFont(undefined,'bold');
+  doc.setTextColor(222,234,232);
+  doc.setFontSize(11);
+  doc.text('A', bx, by+1.8, {align:'center'});
+  doc.setFontSize(6.5);
+  doc.text('ATLAS', bx, by+br+6, {align:'center'});
+  doc.setFont(undefined,'normal');
+
   doc.setTextColor(20,20,20);
 }
 function drawFooterAll(doc, diag){
@@ -2610,7 +2627,7 @@ window.__atlasLibsReady.then(()=>{
 // em arquivo local aberto por duplo clique, o navegador ignora isso sem gerar erro).
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.protocol==='http:')){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js?v=10').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=11').catch(()=>{});
   });
 }
 </script>
