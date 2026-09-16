@@ -1,5 +1,6 @@
-const CACHE='atlas-diagnostic-fitness-v9';
-const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./sw.js'];
+const CACHE='atlas-diagnostic-fitness-v10';
+const ASSETS=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./sw.js',
+  './vendor/jspdf.umd.min.js','./vendor/jspdf.plugin.autotable.min.js','./vendor/chart.umd.min.js'];
 const CDNS=[
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',

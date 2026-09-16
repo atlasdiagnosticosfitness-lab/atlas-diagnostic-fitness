@@ -2248,19 +2248,17 @@ function drawAtlasRadarPDF(doc, diag, cx, cy, radius){
 
   // Área preenchida + contorno.
   const dataPts = values.map((v,i)=>pt(radius*(Math.max(0,Math.min(5,v))/5),i));
+  // Polígono único fechado via doc.lines(): um leque de triângulos (versão anterior) gera
+  // triângulos degenerados (área zero) quando dois pilares seguidos têm nota 0, e isso faz
+  // leitores de PDF mais rígidos (visualizador nativo do Android/iOS, WhatsApp, Gmail) descartar
+  // o bloco vetorial inteiro em silêncio — por isso o gráfico sumia no celular mas aparecia
+  // normalmente no Chrome do PC, que é bem mais tolerante a PDFs malformados.
+  const segs = dataPts.slice(1).map((p,idx)=>[p.x-dataPts[idx].x, p.y-dataPts[idx].y]);
+  segs.push([dataPts[0].x-dataPts[dataPts.length-1].x, dataPts[0].y-dataPts[dataPts.length-1].y]);
   doc.setFillColor(47,201,184);
   doc.setDrawColor(47,201,184);
   doc.setLineWidth(1.0);
-  // jsPDF suporta polígono via lines; preencher usando triangle fan.
-  for(let i=1;i<dataPts.length-1;i++){
-    doc.triangle(cx,cy,dataPts[i].x,dataPts[i].y,dataPts[i+1].x,dataPts[i+1].y,'F');
-  }
-  // Transparência não é confiável em todos os jsPDF do celular, então usamos linhas + pequenos segmentos internos.
-  doc.setDrawColor(47,201,184);
-  for(let i=0;i<n;i++){
-    const a=dataPts[i], b=dataPts[(i+1)%n];
-    doc.line(a.x,a.y,b.x,b.y);
-  }
+  doc.lines(segs, dataPts[0].x, dataPts[0].y, [1,1], 'FD', true);
   dataPts.forEach(p=>{ doc.setFillColor(47,201,184); doc.circle(p.x,p.y,1.6,'F'); });
 
   // Rótulos externos.
@@ -2612,7 +2610,7 @@ window.__atlasLibsReady.then(()=>{
 // em arquivo local aberto por duplo clique, o navegador ignora isso sem gerar erro).
 if('serviceWorker' in navigator && (location.protocol==='https:' || location.protocol==='http:')){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js?v=9').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=10').catch(()=>{});
   });
 }
 </script>
